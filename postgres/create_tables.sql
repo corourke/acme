@@ -58,3 +58,25 @@ ALTER TABLE IF EXISTS scans
     ON UPDATE RESTRICT
     ON DELETE RESTRICT
     NOT VALID;
+
+-- Table 5: daily_category_summary
+CREATE TABLE daily_category_summary (
+    sales_date DATE,
+    store_id INTEGER,
+    category_code INTEGER, 
+    net_revenue DECIMAL(10,2),
+    row_status VARCHAR(10), -- (C)ummulative total, (S)ub-total
+    row_timestamp TIMESTAMP
+);
+ALTER TABLE IF EXISTS daily_category_summary
+    ADD CONSTRAINT fk_store_id FOREIGN KEY (store_id)
+    REFERENCES retail_stores (store_id) MATCH SIMPLE
+    ON UPDATE RESTRICT
+    ON DELETE RESTRICT
+    NOT VALID;
+ALTER TABLE IF EXISTS daily_category_summary
+    ADD CONSTRAINT fk_item_category FOREIGN KEY (category_code)
+    REFERENCES item_categories (category_code) MATCH SIMPLE
+    ON UPDATE RESTRICT
+    ON DELETE RESTRICT
+    NOT VALID;
