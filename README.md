@@ -2,15 +2,25 @@
 
 For various data management and analytics demonstrations, I've been building up this ACME company dataset and various data generators and utilities. I'm going to start cleaning it up and placing it here.
 
+Block diagram:
 <picture>
+
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/corourke/acme/blob/main/doc/images/diagrams-architecture-dark.png?raw=true">
   <source media="(prefers-color-scheme: light)" srcset="https://github.com/corourke/acme/blob/main/doc/images/diagrams-architecture.png?raw=true">
   <img alt="Architecture diagram" src="https://github.com/corourke/acme/blob/main/doc/images/diagrams-architecture.png?raw=true">
 </picture>
 
-![er-diagram](./doc/images/er-diagram-old.png)
+Tables:
+<picture>
+
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/corourke/acme/blob/main/doc/images/diagrams-tables-dark.png?raw=true">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/corourke/acme/blob/main/doc/images/diagrams-tables.png?raw=true">
+  <img alt="Architecture diagram" src="https://github.com/corourke/acme/blob/main/doc/images/diagrams-tables.png?raw=true">
+</picture>
 
 Note that the `batched_scans` table is to be generated with a data generator.
+
+For now, see the [mockaroo2kafka](https://github.com/corourke/mockaroo2kafka) project.
 
 ### Notes
 
