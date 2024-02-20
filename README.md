@@ -12,15 +12,12 @@ Block diagram:
 
 Tables:
 <picture>
-
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/corourke/acme/blob/main/doc/images/diagrams-tables-dark.png?raw=true">
   <source media="(prefers-color-scheme: light)" srcset="https://github.com/corourke/acme/blob/main/doc/images/diagrams-tables.png?raw=true">
   <img alt="Architecture diagram" src="https://github.com/corourke/acme/blob/main/doc/images/diagrams-tables.png?raw=true">
 </picture>
 
 Note that the `batched_scans` table is to be generated with a data generator.
-
-For now, see the [mockaroo2kafka](https://github.com/corourke/mockaroo2kafka) project.
 
 ### Notes
 

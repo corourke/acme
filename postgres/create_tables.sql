@@ -62,10 +62,10 @@ ALTER TABLE IF EXISTS scans
 -- Table 5: daily_category_summary
 CREATE TABLE daily_category_summary (
     sales_date DATE,
-    store_id INTEGER,
+    region VARCHAR(32),
     category_code INTEGER, 
-    net_revenue DECIMAL(10,2),
-    row_status VARCHAR(10), -- (C)ummulative total, (S)ub-total
+    net_sales DECIMAL(10,2),
+    row_status VARCHAR(10), -- (D)aily total, (I)ntermedia total
     row_timestamp TIMESTAMP
 );
 ALTER TABLE IF EXISTS daily_category_summary

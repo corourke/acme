@@ -1,0 +1,49 @@
+{
+  "doc": "Flattened Retail POS scan record.",
+  "name": "scan",
+  "namespace": "com.acme",
+  "type": "record",
+  "fields": [
+    {
+      "doc": "Origin Batch ID.",
+      "name": "batch_id",
+      "type": "string"
+    },
+    {
+      "doc": "Unique Scan ID.",
+      "name": "scan_id",
+      "type": "string"
+    },
+    {
+      "doc": "The retail store ID.",
+      "name": "store_id",
+      "type": "int"
+    },
+    {
+      "doc": "SQL date time format.",
+      "name": "scan_datetime",
+      "type": "string"
+    },
+    {
+      "doc": "Item barcode.",
+      "name": "item_upc",
+      "type": "string"
+    },
+    {
+      "doc": "Quantity purchased.",
+      "name": "unit_qty",
+      "type": "int"
+    },
+    {
+      "doc": "Item price.",
+      "name": "unit_price",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 8,
+        "scale": 2
+      },
+      "default": "\u0000"
+    }
+  ]
+}
