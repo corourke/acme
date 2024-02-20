@@ -4,7 +4,7 @@
   <groupId>corourke</groupId>
   <artifactId>datagen</artifactId>
   <packaging>jar</packaging>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.0</version>
   <name>datagen</name>
   <url>http://maven.apache.org</url>
   <dependencies>
@@ -23,6 +23,12 @@
       <groupId>org.json</groupId>
       <artifactId>json</artifactId>
       <version>20210307</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>5.8.1</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
   <build>

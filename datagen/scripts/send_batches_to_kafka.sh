@@ -9,7 +9,7 @@
 : "${TOPIC:=batched_scans}" 
 : "${DATA_DIR:=/tmp/datagen/$TOPIC}"
 : "${PREFIX:=$TOPIC}"
-: "${SLEEP:=60}" # Time to sleep in between batches
+: "${SLEEP:=30}" # Time to sleep in between batches
 
 # The status file both logs activity and controls script running
 STATUS_FILE=$DATA_DIR/.status
@@ -44,21 +44,25 @@ cleanup ()
 trap cleanup SIGINT SIGTERM
 log_message "START" $THREAD `date`
 
-# Upload files and archive files until told to stop
+# Upload files generated to Kafka and archive
 while [ `grep -c "^STOP" $STATUS_FILE` -eq 0 ] 
 do
-  # Upload files generated to Kafka and archive
-  for staged_file in ${DATA_DIR}/stage/*.json
-  do
-    confluent kafka topic produce $TOPIC --cluster $CLUSTER_ID < $staged_file
-    if [ $? -ne 0 ]; then
-      log_message "ERR_" $THREAD "Exiting due to upload error" `date`
-      log_message "STOP" `date`
-      exit;
-    fi
-    log_message "SENT" $staged_file `date` 
-    mv $staged_file $DATA_DIR/processed
-  done
+  # Check if there are any .json files in the stage directory
+  files=(${DATA_DIR}/stage/*.json)
+  if [ -e "${files[0]}" ]; then
+    # Upload files to Kafka and archive
+    for staged_file in "${files[@]}"
+    do
+      confluent kafka topic produce $TOPIC --cluster $CLUSTER_ID < $staged_file
+      if [ $? -ne 0 ]; then
+        log_message "ERR_" $THREAD "Exiting due to upload error" `date`
+        log_message "STOP" `date`
+        exit;
+      fi
+      log_message "SENT" $staged_file `date` 
+      mv $staged_file $DATA_DIR/processed
+    done
+  fi
   sleep $SLEEP
 done
 log_message "EXIT" $THREAD `date`

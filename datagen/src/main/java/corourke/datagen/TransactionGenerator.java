@@ -13,12 +13,14 @@ import java.time.format.DateTimeFormatter;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import corourke.utils.WeightedRandomListSelector;
 
 public class TransactionGenerator implements Runnable {
-  private static final int BATCH_SIZE_THRESHOLD = 1000;
+  private static final int BATCH_SIZE_THRESHOLD = 5000;
   private String outputDirectory;
   private List<Product> products;
   private List<Store> stores;
+  WeightedRandomListSelector<Product> product_weights;
   private int offsetHours;
   private String timezone = null;
   private boolean running = false;
@@ -26,7 +28,10 @@ public class TransactionGenerator implements Runnable {
 
   public TransactionGenerator(List<Product> products, List<Store> stores, String timezone, String outputDirectory) {
     this.products = products;
-    this.stores = stores.stream() // make a list of stores in this timezone
+    this.product_weights = new WeightedRandomListSelector<>();
+    this.product_weights.preComputeCumulativeWeights(products);
+    // make a list of stores in this timezone
+    this.stores = stores.stream()
         .filter(store -> store.getTimezone().equals(timezone))
         .collect(Collectors.toList());
     this.timezone = timezone;
@@ -70,7 +75,6 @@ public class TransactionGenerator implements Runnable {
     // For each store, figure out how many transactions to generate
     for (Store store : stores) {
       int baseTransactions = calculateBaseTransactions(localTime);
-      Random random = new Random();
       double adjustment = 0.8 + (1.2 - 0.8) * random.nextDouble();
       baseTransactions = Math.max((int) (baseTransactions * adjustment), 0);
       int transactionsCount = adjustTransactionsForTimezone(baseTransactions, timezone);
@@ -168,16 +172,17 @@ public class TransactionGenerator implements Runnable {
     int baseTransactions;
 
     // Determine base number of transactions based on time of day
-    if (hour >= 8 && hour < 11) {
-      baseTransactions = 5;
-    } else if (hour >= 11 && hour < 13) {
-      baseTransactions = 40;
-    } else if (hour >= 13 && hour < 16) {
+    // Numbers are per store, per minute
+    if (hour >= 10 && hour < 11) {
       baseTransactions = 10;
-    } else if (hour >= 16 && hour < 19) {
+    } else if (hour >= 11 && hour < 13) {
+      baseTransactions = 80;
+    } else if (hour >= 13 && hour < 16) {
       baseTransactions = 20;
+    } else if (hour >= 16 && hour < 19) {
+      baseTransactions = 40;
     } else if (hour >= 19 && hour < 22) {
-      baseTransactions = 5;
+      baseTransactions = 14;
     } else {
       return 0; // Store closed or not opened yet
     }
@@ -199,9 +204,7 @@ public class TransactionGenerator implements Runnable {
   }
 
   private Product selectProduct() {
-    // Selection logic based on product frequency
-    // Example placeholder logic
-    return products.get(random.nextInt(products.size())); // Replace with actual logic
+    return product_weights.selectNextWeightedItem(products);
   }
 
 }

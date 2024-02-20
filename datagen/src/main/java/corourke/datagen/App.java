@@ -38,6 +38,7 @@ public class App {
             System.exit(1);
         }
 
+        // Read in the lookup tables
         CSVReader<Product> productReader = new CSVReader<>();
         List<Product> products = productReader.read(itemMasterPath, record -> new Product(
                 Integer.parseInt(record.get("ITEM_ID")), // ITEM_ID
