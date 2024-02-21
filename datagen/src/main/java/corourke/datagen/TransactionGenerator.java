@@ -15,18 +15,30 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import corourke.utils.WeightedRandomListSelector;
 
+/**
+ * Generate transactions for a list of stores in a given timezone
+ */
 public class TransactionGenerator implements Runnable {
+  // Setup variables
   private static final int BATCH_SIZE_THRESHOLD = 5000;
-  private String outputDirectory;
-  private List<Product> products;
-  private List<Store> stores;
-  WeightedRandomListSelector<Product> product_weights;
-  private int offsetHours;
-  private String timezone = null;
-  private boolean running = false;
   private Random random = new Random();
 
-  public TransactionGenerator(List<Product> products, List<Store> stores, String timezone, String outputDirectory) {
+  // TODO: Put all these in shared appState
+  private ApplicationState appState;
+  private List<Product> products;
+  private List<Store> stores;
+  private WeightedRandomListSelector<Product> product_weights;
+
+  // Status variables
+  String timezone = null;
+  boolean running = false;
+  LocalDateTime localDateTime;
+  LocalTime localTime;
+  int offsetHours;
+  int transactionOutput;
+
+  public TransactionGenerator(ApplicationState appState, List<Product> products, List<Store> stores, String timezone) {
+    this.appState = appState;
     this.products = products;
     this.product_weights = new WeightedRandomListSelector<>();
     this.product_weights.preComputeCumulativeWeights(products);
@@ -35,15 +47,13 @@ public class TransactionGenerator implements Runnable {
         .filter(store -> store.getTimezone().equals(timezone))
         .collect(Collectors.toList());
     this.timezone = timezone;
-    this.outputDirectory = outputDirectory;
     // Extract the offset hours from the timezone string like "PST (GMT-08)"
     Pattern pattern = Pattern.compile("GMT([+-]\\d{2})");
     Matcher matcher = pattern.matcher(timezone);
     if (matcher.find()) {
       this.offsetHours = Integer.parseInt(matcher.group(1));
     }
-    System.out.println("TransactionGenerator constructor called, timezone: " + timezone + " offset: " + offsetHours);
-
+    System.out.println("Generator starting, timezone: " + timezone + " offset: " + offsetHours);
   }
 
   @Override
@@ -67,20 +77,17 @@ public class TransactionGenerator implements Runnable {
 
   private void generateTransactions() {
     List<Transaction> batch = new ArrayList<>();
-    LocalDateTime localDateTime = LocalDateTime.now(ZoneId.of("UTC")).plusHours(offsetHours);
-    LocalTime localTime = localDateTime.toLocalTime();
-    System.out.println(
-        "Generating transactions for timezone: " + timezone + " at time: " + localTime);
+    localDateTime = LocalDateTime.now(ZoneId.of("UTC")).plusHours(offsetHours);
+    localTime = localDateTime.toLocalTime();
 
     // For each store, figure out how many transactions to generate
+    int inProcessTransactionCount = 0;
     for (Store store : stores) {
-      int baseTransactions = calculateBaseTransactions(localTime);
-      double adjustment = 0.8 + (1.2 - 0.8) * random.nextDouble();
-      baseTransactions = Math.max((int) (baseTransactions * adjustment), 0);
-      int transactionsCount = adjustTransactionsForTimezone(baseTransactions, timezone);
+      int transactionTarget = getTransactionTarget();
+      inProcessTransactionCount += transactionTarget;
 
-      for (int i = 0; i < transactionsCount; i++) {
-        Product product = selectProduct();
+      for (int i = 0; i < transactionTarget; i++) {
+        Product product = product_weights.selectNextWeightedItem(products);
         BigDecimal price = product.getItemPrice();
         int quantity = random.nextInt(10) < 9 ? 1 : 2 + random.nextInt(3); // Mostly 1, occasionally 2-4
         // Randomize the transaction time within the minute
@@ -109,11 +116,15 @@ public class TransactionGenerator implements Runnable {
     if (!batch.isEmpty()) {
       processBatch(batch);
     }
+
+    transactionOutput = inProcessTransactionCount;
+    LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
+    System.out.println(now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) +
+        " Region: " + timezone + " at: " + localTime + " produced " + transactionOutput + " transactions");
+
   }
 
   private void processBatch(List<Transaction> batch) {
-    System.out.println("Processing batch of " + batch.size() + " transactions, in timezone: " + timezone);
-
     // Generate a unique batch ID as a UUID
     UUID batchId = UUID.randomUUID();
 
@@ -141,12 +152,12 @@ public class TransactionGenerator implements Runnable {
     // Create a JSONObject for the batch and put the batch ID and transactions array
     // into it
     // Example:
-    // {"batch":[
-    // {"scan_id":"01HQ2E19PWJVH1H89DG1J1JJW8","store_id":8157,"scan_datetime":"2024-02-20
-    // 04:57:42","item_upc":"13965265859","unit_qty":2, "unit_price":34.88},
-    // {"scan_id":"01HQ2E19PX56KMDR7PYS96DQD8","store_id":2021,"scan_datetime":"2024-02-20
-    // 04:57:36","item_upc":"11952032591","unit_qty":2,"unit_price":273.88}
-    // ],"batch_id":"01HQ2E19Q5YR81354MMAMQH986"}
+    // { "batch_id":"01HQ2E19Q5YR81354MMAMQH986",
+    // "batch":[
+    // { "scan_id":"01HQ2E19PWJVH1H89DG1J1JJW8",
+    // "store_id":8157, "scan_datetime":"2024-02-20 04:57:42",
+    // "item_upc":"13965265859","unit_qty":2, "unit_price":34.88 }
+    // ]}
     JSONObject batchObject = new JSONObject();
     batchObject.put("batch_id", batchId.toString());
     batchObject.put("batch", transactionsArray);
@@ -159,12 +170,22 @@ public class TransactionGenerator implements Runnable {
     String filename = "batch_" + now.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "_"
         + timezone.substring(0, 3) + ".json";
     try {
-      Files.write(Paths.get(outputDirectory, filename), batchObject.toString().getBytes());
-      System.out.println("Batch written to file: " + filename);
+      Files.write(Paths.get(appState.getOutputDirectory(), filename), batchObject.toString().getBytes());
+      System.out.println(now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + " Batch for region: "
+          + timezone + " size: " + batch.size() + " written to: " + filename);
+
     } catch (IOException e) {
       e.printStackTrace();
     }
 
+  }
+
+  // Calculate the number of transactions to generate based on the time of day
+  private int getTransactionTarget() {
+    int baseTransactions = calculateBaseTransactions(localTime);
+    double randomFactor = 0.8 + (1.2 - 0.8) * random.nextDouble();
+    baseTransactions = Math.max((int) (baseTransactions * randomFactor), 0);
+    return adjustTransactionsForTimezone(baseTransactions, timezone);
   }
 
   private int calculateBaseTransactions(LocalTime time) {
@@ -201,10 +222,6 @@ public class TransactionGenerator implements Runnable {
     }
     // Ensure the result is not less than 0
     return Math.max(adjustedTransactions, 0);
-  }
-
-  private Product selectProduct() {
-    return product_weights.selectNextWeightedItem(products);
   }
 
 }

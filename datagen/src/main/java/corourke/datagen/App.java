@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 public class App {
     public static void main(String[] args) {
         System.out.println("Starting...");
+        ApplicationState appState = new ApplicationState();
 
         // Load configurations
         Properties config = new Properties();
@@ -30,7 +31,7 @@ public class App {
 
         String itemMasterPath = config.getProperty("itemMasterPath");
         String retailStoresPath = config.getProperty("retailStoresPath");
-        String outputDirectory = config.getProperty("outputDirectory");
+        appState.setOutputDirectory(config.getProperty("outputDirectory"));
 
         if (!Files.exists(Paths.get(itemMasterPath))
                 || !Files.exists(Paths.get(retailStoresPath))) {
@@ -68,21 +69,28 @@ public class App {
         // Initialize and start the transaction generators
         Map<String, Thread> generatorThreads = new HashMap<>();
         for (String timezone : timezones) {
-            TransactionGenerator generator = new TransactionGenerator(products, stores, timezone, outputDirectory);
+            TransactionGenerator generator = new TransactionGenerator(appState, products, stores, timezone);
             Thread generatorThread = new Thread(generator); // Wrap the generator in a Thread
             generatorThreads.put(timezone, generatorThread);
             generatorThread.start(); // Start the generator thread
+            // Delay for 7 seconds to kind of keep reporting from interleaving
+            try {
+                Thread.sleep(7000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
+        appState.setRunStatus(true);
 
         // Add shutdown hook for graceful shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            timezones.forEach(timezone -> {
-                Thread generatorThread = generatorThreads.get(timezone);
+            System.out.println("Shutting down...");
+            appState.setRunStatus(false);
+            generatorThreads.forEach((timezone, generatorThread) -> {
                 generatorThread.interrupt(); // Attempt to stop the generator thread
             });
             // kafkaProducer.close();
             // statusWebServer.stopServer();
-            System.out.println("Shutdown complete.");
         }));
 
         // The main thread can continue to monitor or manage the application, if

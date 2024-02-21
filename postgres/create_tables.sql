@@ -44,7 +44,8 @@ CREATE TABLE scans (
     store_id INTEGER,
     scan_datetime TIMESTAMP,
     item_upc VARCHAR(15),
-    unit_qty INTEGER
+    unit_qty INTEGER,
+    unit_price NUMERIC
 );
 ALTER TABLE IF EXISTS scans
     ADD CONSTRAINT fk_store_id FOREIGN KEY (store_id)
@@ -65,15 +66,9 @@ CREATE TABLE daily_category_summary (
     region VARCHAR(32),
     category_code INTEGER, 
     net_sales DECIMAL(10,2),
-    row_status VARCHAR(10), -- (D)aily total, (I)ntermedia total
+    row_status VARCHAR(1), -- (D)aily total, (I)ntermediate total
     row_timestamp TIMESTAMP
 );
-ALTER TABLE IF EXISTS daily_category_summary
-    ADD CONSTRAINT fk_store_id FOREIGN KEY (store_id)
-    REFERENCES retail_stores (store_id) MATCH SIMPLE
-    ON UPDATE RESTRICT
-    ON DELETE RESTRICT
-    NOT VALID;
 ALTER TABLE IF EXISTS daily_category_summary
     ADD CONSTRAINT fk_item_category FOREIGN KEY (category_code)
     REFERENCES item_categories (category_code) MATCH SIMPLE
