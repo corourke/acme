@@ -24,6 +24,7 @@ public class PriceUpdater {
     public static void main(String[] args) {
         PriceUpdater updater = new PriceUpdater();
         Runtime.getRuntime().addShutdownHook(new Thread(updater::shutdown));
+        logger.setLevel(Level.INFO);
         updater.run();
     }
 
@@ -51,33 +52,78 @@ public class PriceUpdater {
             return;
         }
 
-        // Open a connection
-        try (Connection conn = DriverManager.getConnection(
-                "jdbc:postgresql://" + props.getProperty("database.host") + ":" +
-                        props.getProperty("database.port") + "/" + props.getProperty("database.name"),
-                props.getProperty("database.user"), props.getProperty("database.password"))) {
+        // The main part of the program, exits on error or when interrupted
+        Connection conn = null;
+        try {
+            conn = createConnection();
             logger.log(Level.INFO, "{0} - Connected to the PostgreSQL server successfully.", sdf.format(new Date()));
             // Main loop
             while (!Thread.currentThread().isInterrupted()) {
                 // Check time
-                if (isUpdateTime()) {
+                if (isBusinessHours()) {
+                    // Check that connection is still valid
+                    if (!conn.isValid(5)) { // 5 seconds timeout
+                        logger.log(Level.WARNING, "{0} - Database connection is no longer valid, reconnecting.",
+                                sdf.format(new Date()));
+                        conn = createConnection();
+                    }
+                    // Do the next set of updates
                     int categoryCode = selectRandomCategory(conn);
                     if (categoryCode != 0) {
                         logger.log(Level.INFO, "{0} - Doing a price update for category: {1}",
                                 new Object[] { sdf.format(new Date()), categoryCode });
                         updateItemPrices(conn, categoryCode);
                     }
+                    // Sleep for a random time
                     sleepRandomTime();
                 } else {
-                    Thread.sleep(360000); // Sleep for 1 hour before checking time again
+                    Thread.sleep(3600000); // Sleep for 1 hour before checking time again
                 }
             }
-        } catch (SQLException | InterruptedException e) {
+        } catch (SQLException e) {
+            System.out.println("SQL Error: " + e.getMessage());
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
-    private boolean isUpdateTime() {
+    // Create a connection to the database, nothin fancy
+    private Connection createConnection() throws SQLException {
+        return DriverManager.getConnection(
+                "jdbc:postgresql://" + props.getProperty("database.host") + ":" +
+                        props.getProperty("database.port") + "/" + props.getProperty("database.name"),
+                props.getProperty("database.user"), props.getProperty("database.password"));
+    }
+
+    // Select a random category_code from the item_categories table
+    private int selectRandomCategory(Connection conn) throws SQLException {
+        String sql = "SELECT category_code FROM item_categories ORDER BY RANDOM() LIMIT 1";
+        PreparedStatement pstmt = conn.prepareStatement(sql);
+        ResultSet rs = pstmt.executeQuery();
+        if (rs.next()) {
+            return rs.getInt("category_code");
+        }
+        return 0;
+    }
+
+    // Update the prices of a random set of items in the given category
+    private void updateItemPrices(Connection conn, int categoryCode) throws SQLException {
+        int updateCount = 200 + rand.nextInt(401); // Random number between 200 and 600
+        String sql = "WITH updated AS (SELECT item_id FROM item_master WHERE category_code = ? ORDER BY RANDOM() LIMIT "
+                + updateCount + ") " +
+                "UPDATE item_master SET item_price = item_price * (0.9 + (0.2 * RANDOM())) FROM updated WHERE item_master.item_id = updated.item_id";
+        // System.out.println("Executing SQL: " + sql.replace("?",
+        // String.valueOf(categoryCode)));
+
+        PreparedStatement pstmt = conn.prepareStatement(sql);
+        pstmt.setInt(1, categoryCode);
+        pstmt.executeUpdate();
+        logger.log(Level.INFO, "{0} - Number of prices updated: {1}",
+                new Object[] { sdf.format(new Date()), updateCount });
+    }
+
+    // Check if it is business hours
+    private boolean isBusinessHours() {
         LocalTime now = LocalTime.now();
         boolean isBusinessHours = !(now.isAfter(LocalTime.of(19, 0)) || now.isBefore(LocalTime.of(9, 0)));
         logger.log(Level.INFO, "{0} - Business hours? {1}", new Object[] { sdf.format(new Date()), isBusinessHours });
@@ -85,36 +131,7 @@ public class PriceUpdater {
 
     }
 
-    private int selectRandomCategory(Connection conn) {
-        String sql = "SELECT category_code FROM item_categories ORDER BY RANDOM() LIMIT 1";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("category_code");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return 0;
-    }
-
-    private void updateItemPrices(Connection conn, int categoryCode) {
-        int updateCount = 90 + rand.nextInt(211); // Random number between 90 and 300
-        String sql = "WITH updated AS (SELECT item_id FROM item_master WHERE category_code = ? ORDER BY RANDOM() LIMIT "
-                + updateCount + ") " +
-                "UPDATE item_master SET item_price = item_price * (0.9 + (0.2 * RANDOM())) FROM updated WHERE item_master.item_id = updated.item_id";
-        System.out.println("Executing SQL: " + sql.replace("?", String.valueOf(categoryCode)));
-
-        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, categoryCode);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        logger.log(Level.INFO, "{0} - Number of prices updated: {1}",
-                new Object[] { sdf.format(new Date()), updateCount });
-    }
-
+    // Sleep for a random time between 30 and 90 minutes
     private void sleepRandomTime() {
         int sleepTime = 30 + rand.nextInt(61); // Random time between 30 and 90 minutes
         try {
