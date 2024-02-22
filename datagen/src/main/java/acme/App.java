@@ -1,4 +1,4 @@
-package corourke.datagen;
+package acme;
 
 import java.util.HashMap;
 import java.util.List;

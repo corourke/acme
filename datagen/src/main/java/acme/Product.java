@@ -1,4 +1,4 @@
-package corourke.datagen;
+package acme;
 
 import java.math.BigDecimal;
 
