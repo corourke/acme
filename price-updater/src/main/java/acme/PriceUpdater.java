@@ -77,7 +77,7 @@ public class PriceUpdater {
                     // Sleep for a random time
                     sleepRandomTime();
                 } else {
-                    Thread.sleep(3600000); // Sleep for 1 hour before checking time again
+                    Thread.sleep(600000); // Sleep for 10 minutes before checking time again
                 }
             }
         } catch (SQLException e) {
@@ -108,7 +108,7 @@ public class PriceUpdater {
 
     // Update the prices of a random set of items in the given category
     private void updateItemPrices(Connection conn, int categoryCode) throws SQLException {
-        int updateCount = 200 + rand.nextInt(401); // Random number between 200 and 600
+        int updateCount = 100 + rand.nextInt(501); // Random number between 100 and 600
         String sql = "WITH updated AS (SELECT item_id FROM item_master WHERE category_code = ? ORDER BY RANDOM() LIMIT "
                 + updateCount + ") " +
                 "UPDATE item_master SET item_price = item_price * (0.9 + (0.2 * RANDOM())) FROM updated WHERE item_master.item_id = updated.item_id";
@@ -131,9 +131,9 @@ public class PriceUpdater {
 
     }
 
-    // Sleep for a random time between 30 and 90 minutes
+    // Sleep for a random time between 30 and 120 minutes
     private void sleepRandomTime() {
-        int sleepTime = 30 + rand.nextInt(61); // Random time between 30 and 90 minutes
+        int sleepTime = 30 + rand.nextInt(91); // Random time between 30 and 90 minutes
         try {
             Thread.sleep(sleepTime * 60000);
         } catch (InterruptedException e) {

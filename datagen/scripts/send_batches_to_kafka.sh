@@ -9,7 +9,7 @@
 : "${TOPIC:=batched_scans}" 
 : "${DATA_DIR:=/tmp/datagen/$TOPIC}"
 : "${PREFIX:=$TOPIC}"
-: "${SLEEP:=10}" # Time to sleep in between batches
+: "${SLEEP:=30}" # Time to sleep in between batches
 
 # The status file both logs activity and controls script running
 STATUS_FILE=$DATA_DIR/.status
@@ -53,10 +53,9 @@ do
     # Upload files to Kafka and archive
     for staged_file in "${files[@]}"
     do
-      confluent kafka topic produce $TOPIC --cluster $CLUSTER_ID < $staged_file
+      output=`confluent kafka topic produce $TOPIC --cluster $CLUSTER_ID 2>&1 < $staged_file`
       if [ $? -ne 0 ]; then
-        log_message "ERR_" $THREAD "Exiting due to upload error" `date`
-        log_message "STOP" `date`
+        log_message "ERR_" $THREAD "Upload error" `date` `echo $output | tr -d '\n'`
         exit;
       fi
       log_message "SENT" $staged_file `date` 
