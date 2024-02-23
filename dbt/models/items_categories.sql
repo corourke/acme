@@ -1,12 +1,12 @@
 -- Expand category code to name and description
 WITH items AS (
     SELECT category_code, item_id, item_price, item_upc, repl_qty 
-    FROM acme_retail_bronze.public_item_master_rt
+    FROM acme_retail_bronze.retail_item_master_rt
 ),
 
 categories AS (
     SELECT category_code, category_name, category_description 
-    FROM acme_retail_bronze.public_item_categories_rt
+    FROM acme_retail_bronze.retail_item_categories_rt
 ),
 
 final AS (

@@ -4,8 +4,8 @@ CREATE TABLE item_categories (
     category_name VARCHAR(255), 
     category_description VARCHAR(255),
     ytd_sales INTEGER, 
-    avg_price INTEGER, 
-    _frequency NUMERIC -- mockaroo
+    avg_price NUMERIC, 
+    _frequency NUMERIC
 );
 
 -- Table 2: item_master
@@ -15,7 +15,7 @@ CREATE TABLE item_master (
     item_price NUMERIC, 
     item_upc VARCHAR(15) UNIQUE, 
     repl_qty INTEGER,
-    _frequency INTEGER -- mockaroo
+    _frequency INTEGER
 );
 CREATE INDEX idx_item_upc ON item_master (item_upc);
 ALTER TABLE IF EXISTS item_master
@@ -37,7 +37,8 @@ CREATE TABLE retail_stores (
     timezone VARCHAR(32)
 );
 
--- Table 4: scans
+-- Table 4: unbatched scans
+-- This table is actually in the datalake, but showing it here for reference
 CREATE TABLE scans (
     batch_id VARCHAR(48),
     scan_id VARCHAR(48) PRIMARY KEY,
@@ -60,18 +61,18 @@ ALTER TABLE IF EXISTS scans
     ON DELETE RESTRICT
     NOT VALID;
 
--- Table 5: daily_category_summary
-CREATE TABLE daily_category_summary (
-    sales_date DATE,
-    region VARCHAR(32),
+-- Table 5: hourly sales by category summary
+-- This table is actually in the datalake, but showing it here for reference
+CREATE TABLE sales_hour_category_summary (
+    sales_day_hour TIMESTAMP,
+    region VARCHAR(32), -- retail_stores.timezone
+    state VARCHAR (2),
+    store_id INTEGER, 
     category_code INTEGER, 
+    category_name VARCHAR(255),
     net_sales DECIMAL(10,2),
-    row_status VARCHAR(1), -- (D)aily total, (I)ntermediate total
+    row_status VARCHAR(1), -- (D)aily total, (H)ourly total, (I)ntermediate total
     row_timestamp TIMESTAMP
 );
-ALTER TABLE IF EXISTS daily_category_summary
-    ADD CONSTRAINT fk_item_category FOREIGN KEY (category_code)
-    REFERENCES item_categories (category_code) MATCH SIMPLE
-    ON UPDATE RESTRICT
-    ON DELETE RESTRICT
-    NOT VALID;
+CREATE INDEX idx_sales_hour_category_summary 
+    ON sales_hour_category_summary (sales_day_hour, store_id, category_code);
