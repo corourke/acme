@@ -1,40 +1,32 @@
-WITH combined_data AS (
-  SELECT 
-    CAST(date_parse(scans.batch_scan_datetime, '%Y-%m-%d %H:%i:%s') AS timestamp(6)) as scan_datetime, 
+-- Standalone top 10 query, also see the dbt version with intermediate tables
+WITH sales_by_month AS (
+SELECT 
+    DATE_TRUNC('month', CAST(parse_datetime(scans.batch_scan_datetime, 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP)) AS year_month,
     scans.batch_item_upc as item_upc,
     scans.batch_unit_qty as unit_qty,
-    stores.city,
-    stores.state,
-    stores.timezone,
-    items.category_code,
-    categories.category_name,
-    items.item_price
-  FROM acme_retail_bronze.batched_scans3_rt scans
-  INNER JOIN acme_retail_bronze.retail_retail_stores_rt stores ON scans.batch_store_id = stores.store_id
-  INNER JOIN acme_retail_bronze.retail_item_master_rt items ON scans.batch_item_upc = items.item_upc
-  INNER JOIN acme_retail_bronze.retail_item_categories_rt categories ON items.category_code = categories.category_code
-),
-
-sales_by_month AS (
-  SELECT 
-    DATE_TRUNC('month', scan_datetime) as year_month,
-    category_code,
-    category_name,
-    timezone as region,
-    SUM(unit_qty) as sum_qty, 
-    CAST(AVG(item_price) as decimal(10,2)) as avg_price, 
-    CAST(SUM(unit_qty * item_price) as decimal(10,2)) as sum_amount
-  FROM combined_data
-  GROUP BY 1, 2, 3, 4
+    retail_stores.state,
+    retail_stores.timezone as region,
+    item_master.category_code,
+    item_categories.category_name,
+    SUM(batch_unit_qty) net_units,
+    SUM(batch_unit_qty * CAST(item_master.item_price AS DECIMAL(10,2))) AS net_sales
+FROM batched_scans_rt AS scans
+INNER JOIN retail_retail_stores_ro AS retail_stores ON batch_store_id = store_id
+INNER JOIN retail_products_rt AS item_master ON batch_item_upc = item_upc -- normally retail_item_master_rt
+INNER JOIN retail_item_categories_ro AS item_categories ON item_master.category_code = item_categories.category_code
+GROUP BY 1, 2, 3, 4, 5, 6, 7
 )
+
+-- Doing this in two parts so that we can create different queries
+-- Better to use silver tables if possible
 
 -- Top 10 sales categories
 SELECT 
   category_code, 
   category_name, 
-  SUM(sum_qty) as total_qty, 
-  SUM(sum_amount) as total_amount
+  SUM(net_units) as net_units, 
+  SUM(net_sales) as net_sales
 FROM sales_by_month
 GROUP BY category_code, category_name
-ORDER BY total_amount DESC
+ORDER BY net_sales DESC
 LIMIT 10
