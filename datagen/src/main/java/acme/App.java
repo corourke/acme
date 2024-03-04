@@ -17,7 +17,6 @@ import java.nio.file.Paths;
 
 public class App {
     public static void main(String[] args) {
-        System.out.println("Starting...");
         ApplicationState appState = new ApplicationState();
 
         // Load configurations
@@ -67,6 +66,7 @@ public class App {
         // Make a list of the unique timezones in the stores list
         List<String> timezones = stores.stream().map(Store::getTimezone).distinct().collect(Collectors.toList());
         // Initialize and start the transaction generators
+        System.out.println("Starting...");
         Map<String, Thread> generatorThreads = new HashMap<>();
         for (String timezone : timezones) {
             TransactionGenerator generator = new TransactionGenerator(appState, products, stores, timezone);

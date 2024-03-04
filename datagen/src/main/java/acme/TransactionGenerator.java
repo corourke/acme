@@ -180,7 +180,8 @@ public class TransactionGenerator implements Runnable {
 
   }
 
-  // Calculate the number of transactions to generate based on the time of day
+  // Calculate the number of transactions to generate based on the
+  // time of day, the area of the country, and a random factor
   private int getTransactionTarget() {
     int baseTransactions = calculateBaseTransactions(localTime);
     double randomFactor = 0.8 + (1.2 - 0.8) * random.nextDouble();
@@ -188,26 +189,28 @@ public class TransactionGenerator implements Runnable {
     return adjustTransactionsForTimezone(baseTransactions, timezone);
   }
 
+  // Determine base number of transactions based on time of day
   private int calculateBaseTransactions(LocalTime time) {
     int hour = time.getHour();
-    int baseTransactions;
+    double multiplier;
+    final int CHECKSTANDS = 10; // Checkstands open at busiest stores
+    final int SCANS_PER_HOUR = 800; // Industry ranges from 600 to 1200 scans per hour
 
-    // Determine base number of transactions based on time of day
-    // Numbers are per store, per minute
+    // Scale down scans based on time of day
     if (hour >= 10 && hour < 11) {
-      baseTransactions = 10;
+      multiplier = 0.12;
     } else if (hour >= 11 && hour < 13) {
-      baseTransactions = 80;
+      multiplier = 1.0;
     } else if (hour >= 13 && hour < 16) {
-      baseTransactions = 20;
+      multiplier = 0.25;
     } else if (hour >= 16 && hour < 19) {
-      baseTransactions = 40;
+      multiplier = 0.5;
     } else if (hour >= 19 && hour < 22) {
-      baseTransactions = 14;
+      multiplier = 0.17;
     } else {
       return 0; // Store closed or not opened yet
     }
-    return baseTransactions;
+    return (int) multiplier * (CHECKSTANDS * SCANS_PER_HOUR / 60);
   }
 
   private int adjustTransactionsForTimezone(int baseTransactions, String timezone) {

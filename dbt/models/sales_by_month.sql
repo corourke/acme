@@ -1,4 +1,5 @@
--- Roll up sales by month, category, store
+-- Roll up sales by month, location, category
+
 SELECT 
     EXTRACT(YEAR from scan_datetime) year, 
     EXTRACT(MONTH from scan_datetime) month,

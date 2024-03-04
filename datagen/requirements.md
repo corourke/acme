@@ -1,6 +1,4 @@
-Requirements for a data generator written in Java that simulates point-of-sale transactions and sends batches of those transactions to Kafka.
-
-The purpose of this program is to generate simplated point-of-sale (checkout) transactions in large quantities for analytical processing. It follows my experience with a large retailer with hundreds of stores throughout the US. The data team needed to bring near real-time sales data together for immediate analysis around the holidays in a pricing 'war room' situation.
+## Requirements
 
 This list encapsulates the functional and operational requirements for the point-of-sale transaction data generator, aiming to ensure realistic simulation, efficient data handling, and proper integration with Kafka for data ingestion.
 

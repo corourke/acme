@@ -1,4 +1,4 @@
--- Expand category code to name and description
+-- Flatten the item_master and item_categories
 WITH items AS (
     SELECT category_code, item_id, item_upc, repl_qty 
     FROM acme_retail_bronze.retail_item_master_rt
