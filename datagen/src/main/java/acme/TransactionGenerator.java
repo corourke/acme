@@ -210,7 +210,7 @@ public class TransactionGenerator implements Runnable {
     } else {
       return 0; // Store closed or not opened yet
     }
-    return (int) multiplier * (CHECKSTANDS * SCANS_PER_HOUR / 60);
+    return (int) Math.floor(multiplier * ((CHECKSTANDS * SCANS_PER_HOUR) / 60.0));
   }
 
   private int adjustTransactionsForTimezone(int baseTransactions, String timezone) {
