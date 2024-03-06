@@ -9,7 +9,7 @@
 : "${TOPIC:=batched_scans}" 
 : "${DATA_DIR:=/tmp/datagen/$TOPIC}"
 : "${PREFIX:=$TOPIC}"
-: "${SLEEP:=30}" # Time to sleep in between batches
+: "${SLEEP:=10}" # Time to sleep in between batches
 
 # The status file both logs activity and controls script running
 STATUS_FILE=$DATA_DIR/.status

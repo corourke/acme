@@ -12,7 +12,7 @@ SELECT
     SUM(batch_unit_qty * CAST(item_master.item_price AS DECIMAL(10,2))) AS net_sales
 FROM batched_scans_rt AS scans
 INNER JOIN retail_retail_stores_ro AS retail_stores ON batch_store_id = store_id
-INNER JOIN retail_products_rt AS item_master ON batch_item_upc = item_upc -- normally retail_item_master_rt
+INNER JOIN retail_item_master_rt AS item_master ON batch_item_upc = item_upc -- normally retail_item_master_rt
 INNER JOIN retail_item_categories_ro AS item_categories ON item_master.category_code = item_categories.category_code
 GROUP BY 1, 2, 3, 4, 5, 6, 7
 )
