@@ -1,9 +1,13 @@
+// simulate price fluctuations and the addition of new items within a PostgreSQL database 
+// (specifically the item_master table)
+
 package acme;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
 import java.util.Random;
+import java.util.Set;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -12,19 +16,22 @@ import java.sql.SQLException;
 import java.time.LocalTime;
 import java.util.logging.Logger;
 import java.util.logging.Level;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.HashSet;
 
 public class PriceUpdater {
     private Properties props = new Properties();
     private Random rand = new Random();
     private static final Logger logger = Logger.getLogger(PriceUpdater.class.getName());
-    private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss");
+    private int nextItemId = 50000;
+    private Set<String> existingUPCs = new HashSet<>();
 
     public static void main(String[] args) {
         PriceUpdater updater = new PriceUpdater();
         Runtime.getRuntime().addShutdownHook(new Thread(updater::shutdown));
         logger.setLevel(Level.INFO);
+        System.setProperty("java.util.logging.SimpleFormatter.format",
+                "%4$s: %2$s %1$tb %1$td, %1$tY %1$tl:%1$tM:%1$tS %1$Tp  - %5$s%6$s%n");
+
         updater.run();
     }
 
@@ -56,24 +63,24 @@ public class PriceUpdater {
         Connection conn = null;
         try {
             conn = createConnection();
-            logger.log(Level.INFO, "{0} - Connected to the PostgreSQL server successfully.", sdf.format(new Date()));
+            logger.log(Level.INFO, "Connected to the PostgreSQL server successfully.");
             // Main loop
             while (!Thread.currentThread().isInterrupted()) {
                 // Check time
                 if (isBusinessHours()) {
                     // Check that connection is still valid
                     if (!conn.isValid(5)) { // 5 seconds timeout
-                        logger.log(Level.WARNING, "{0} - Database connection is no longer valid, reconnecting.",
-                                sdf.format(new Date()));
+                        logger.log(Level.WARNING, "Database connection is no longer valid, reconnecting.");
                         conn = createConnection();
                     }
                     // Do the next set of updates
                     int categoryCode = selectRandomCategory(conn);
                     if (categoryCode != 0) {
-                        logger.log(Level.INFO, "{0} - Doing a price update for category: {1}",
-                                new Object[] { sdf.format(new Date()), categoryCode });
+                        logger.log(Level.INFO, String.format("Doing a price update for category: %d", categoryCode));
                         updateItemPrices(conn, categoryCode);
                     }
+                    // Insert a few new dummy items
+                    insertNewItems(conn, categoryCode);
                     // Sleep for a random time
                     sleepRandomTime();
                 } else {
@@ -118,15 +125,84 @@ public class PriceUpdater {
         PreparedStatement pstmt = conn.prepareStatement(sql);
         pstmt.setInt(1, categoryCode);
         pstmt.executeUpdate();
-        logger.log(Level.INFO, "{0} - Number of prices updated: {1}",
-                new Object[] { sdf.format(new Date()), updateCount });
+        logger.log(Level.INFO, String.format("Number of prices updated: %d", updateCount));
+    }
+
+    // Insert a few new dummy items in the given category
+    private void insertNewItems(Connection conn, int categoryCode) throws SQLException {
+        int numNewItems = 10 + rand.nextInt(11); // Random number between 10 and 20
+        String upc;
+
+        nextItemId = findNextItemId(conn);
+        loadExistingUPCs(conn); // Load existing UPCs into memory
+        logger.log(Level.INFO, String.format("Next item_id: %d", nextItemId));
+
+        do {
+            upc = generateUPC();
+        } while (existingUPCs.contains(upc)); // Efficient in-memory check
+        existingUPCs.add(upc); // Keep track of the new UPC
+
+        String sql = "INSERT INTO item_master "
+                + "(category_code, item_id, item_price, item_upc, repl_qty, _frequency) "
+                + "VALUES (?, ?, 1.00, ?, 1, 1)";
+
+        PreparedStatement pstmt = conn.prepareStatement(sql);
+        for (int i = 1; i <= numNewItems; i++) {
+            // Generate new UPC
+            do {
+                upc = generateUPC();
+            } while (existingUPCs.contains(upc)); // Efficient in-memory check
+            existingUPCs.add(upc); // Keep track of the new UPC
+            // Insert the new item row
+            pstmt.setInt(1, categoryCode);
+            pstmt.setInt(2, nextItemId + i); // Ensure unique item_id values
+            pstmt.setString(3, upc);
+            pstmt.executeUpdate();
+        }
+
+        logger.log(Level.INFO, String.format("Number of new items inserted: %d", numNewItems));
+    }
+
+    // Helper function to generate a random 11-digit UPC (without check digit)
+    private String generateUPC() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("2"); // Start with '2' so we can easily spot them
+        for (int i = 1; i < 11; i++) { // Notice the loop starts at 1
+            sb.append(rand.nextInt(10));
+        }
+        return sb.toString();
+    }
+
+    // Load existing UPCs into memory
+    private void loadExistingUPCs(Connection conn) throws SQLException {
+        existingUPCs.clear(); // Reset the set before loading
+        PreparedStatement pstmt = conn.prepareStatement("SELECT item_upc FROM item_master");
+        ResultSet rs = pstmt.executeQuery();
+        while (rs.next()) {
+            existingUPCs.add(rs.getString("item_upc"));
+        }
+    };
+
+    // Helper function to find the next item_id (over 50000)
+    private int findNextItemId(Connection conn) throws SQLException {
+        int maxItemId = 50000;
+        String sql = "SELECT MAX(item_id) max_item_id FROM item_master";
+        PreparedStatement pstmt = conn.prepareStatement(sql);
+        ResultSet rs = pstmt.executeQuery();
+        if (rs.next()) {
+            maxItemId = rs.getInt("max_item_id");
+        }
+        if (maxItemId < 50000) {
+            maxItemId = 50000;
+        }
+        return maxItemId + 1;
     }
 
     // Check if it is business hours
     private boolean isBusinessHours() {
         LocalTime now = LocalTime.now();
         boolean isBusinessHours = !(now.isAfter(LocalTime.of(19, 0)) || now.isBefore(LocalTime.of(9, 0)));
-        logger.log(Level.INFO, "{0} - Business hours? {1}", new Object[] { sdf.format(new Date()), isBusinessHours });
+        logger.log(Level.INFO, String.format("Business hours? %s", isBusinessHours));
         return isBusinessHours;
 
     }
