@@ -63,16 +63,17 @@ ALTER TABLE IF EXISTS scans
 
 -- Table 5: hourly sales by category summary
 -- This table is actually in the datalake, but showing it here for reference
-CREATE TABLE sales_hour_category_summary (
+CREATE TABLE sales_summary (
     sales_day_hour TIMESTAMP,
     region VARCHAR(32), -- retail_stores.timezone
     state VARCHAR (2),
     store_id INTEGER, 
     category_code INTEGER, 
     category_name VARCHAR(255),
+    net_units INTEGER,
     net_sales DECIMAL(10,2),
     row_status VARCHAR(1), -- (D)aily total, (H)ourly total, (I)ntermediate total
     row_timestamp TIMESTAMP
 );
-CREATE INDEX idx_sales_hour_category_summary 
+CREATE INDEX idx_sales_summary 
     ON sales_hour_category_summary (sales_day_hour, store_id, category_code);
