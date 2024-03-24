@@ -25,11 +25,14 @@ Start the process using `./start.sh`
 2. Connects to a Postgres database
 3. Reads in one random category_code from item_categories.
 4. Randomly modifies the price for a subset of items within the chosen category. Prices can increase or decrease by up to 10%.
-5. Randomly inserts a small number of new items. Ensures that the new item IDs and UPC codes are unique. 
-5. Sleeps for a random period of time between 30 and 90 minutes. Does not make updates at night.
-6. Listens for an OS interrupt to release resources and shutdown gracefully.
+5. Randomly inserts a small number of new items. Ensures that the new item IDs and UPC codes are unique.
+6. Sleeps for a random period of time between 30 and 90 minutes. Does not make updates at night.
+7. Listens for an OS interrupt to release resources and shutdown gracefully.
 
 ### Potential Enhancements
 
-* **Realistic UPCs:** More accurate UPCs, would include a check digit calculation and  integration with GS1 standards.
-* **Item Data:** Replace the placeholder data for new records with more realistic data.
+- **Realistic UPCs:** More accurate UPCs, would include a check digit calculation and integration with GS1 standards.
+- **Item Data:** Replace the placeholder data for new records with more realistic data.
+
+* **Configurable:** It might be useful to make this program more configurable, to handle more varied
+  demo data tasks as opposed to being a single-purpose program.

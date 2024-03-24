@@ -12,7 +12,7 @@ CREATE TABLE item_categories (
 CREATE TABLE item_master (
     category_code INTEGER, 
     item_id INTEGER PRIMARY KEY,
-    item_price NUMERIC, 
+    item_price DECIMAL(10,2), 
     item_upc VARCHAR(15) UNIQUE, 
     repl_qty INTEGER,
     _frequency INTEGER
