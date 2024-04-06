@@ -2,7 +2,6 @@ package acme;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 
 public class ApplicationState {
   // Thread-safe variables
