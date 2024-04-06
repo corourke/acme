@@ -11,3 +11,8 @@ TL;DR;
 EOF
   exit 1
 fi
+
+if [ `confluent kafka topic list | grep "batched_scans" | wc -l` -ne 1 ]; then
+  echo "The 'batched_scans' topic must be created in Confluent." 
+  exit 1
+fi
