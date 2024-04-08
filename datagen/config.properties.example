@@ -1,0 +1,13 @@
+itemMasterPath=resources/item_master.csv
+retailStoresPath=resources/retail_stores.csv
+outputDirectory=/tmp/datagen/batched_scans/stage
+
+# Standard Kafka configurations
+bootstrap.servers=pkc-rgm37.us-west-2.aws.confluent.cloud:9092
+security.protocol=SASL_SSL
+sasl.mechanism=PLAIN
+sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username='API_KEY' password='API_SECRET';
+
+# Confluent Schema Registry (if used)
+schema.registry.url=https://psrc-zj6ny.us-east-2.aws.confluent.cloud
+

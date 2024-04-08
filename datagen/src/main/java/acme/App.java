@@ -5,6 +5,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
+
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.StringSerializer;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -17,8 +21,8 @@ import java.nio.file.Paths;
 
 public class App {
     public static void main(String[] args) {
-        ApplicationState appState = new ApplicationState();
-
+        // Disable Jansi library as it has a bug that causes the console to hang
+        System.setProperty("log4j.skipJansi", "true");
         // Load configurations
         Properties config = new Properties();
         try {
@@ -30,7 +34,15 @@ public class App {
 
         String itemMasterPath = config.getProperty("itemMasterPath");
         String retailStoresPath = config.getProperty("retailStoresPath");
-        appState.setOutputDirectory(config.getProperty("outputDirectory"));
+
+        // Initialize Kafka configuration
+        Properties kafkaProps = new Properties();
+        kafkaProps.put("bootstrap.servers", config.getProperty("bootstrap.servers"));
+        kafkaProps.put("security.protocol", config.getProperty("security.protocol"));
+        kafkaProps.put("sasl.mechanism", config.getProperty("sasl.mechanism"));
+        kafkaProps.put("sasl.jaas.config", config.getProperty("sasl.jaas.config"));
+        kafkaProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        kafkaProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
         if (!Files.exists(Paths.get(itemMasterPath))
                 || !Files.exists(Paths.get(retailStoresPath))) {
@@ -68,10 +80,25 @@ public class App {
         // Initialize and start the transaction generators
         System.out.println("Starting...");
         Map<String, Thread> generatorThreads = new HashMap<>();
+        // Map<String, TransactionGenerator> generators = new HashMap<>();
+
+        // Add shutdown hook for graceful shutdown
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Shutting down...");
+            generatorThreads.forEach((timezone, generatorThread) -> {
+                generatorThread.interrupt(); // Attempt to stop the generator thread
+            });
+            // generators.forEach((timezone, generator) -> {
+            // generator.stopRunning(); // Stop the generator
+            // });
+            // statusWebServer.stopServer();
+        }));
+
         for (String timezone : timezones) {
-            TransactionGenerator generator = new TransactionGenerator(appState, products, stores, timezone);
+            TransactionGenerator generator = new TransactionGenerator(config, kafkaProps, products, stores, timezone);
             Thread generatorThread = new Thread(generator); // Wrap the generator in a Thread
             generatorThreads.put(timezone, generatorThread);
+            // generators.put(timezone, generator);
             generatorThread.start(); // Start the generator thread
             // Delay for 7 seconds to kind of keep reporting from interleaving
             try {
@@ -80,18 +107,6 @@ public class App {
                 e.printStackTrace();
             }
         }
-        appState.setRunStatus(true);
-
-        // Add shutdown hook for graceful shutdown
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("Shutting down...");
-            appState.setRunStatus(false);
-            generatorThreads.forEach((timezone, generatorThread) -> {
-                generatorThread.interrupt(); // Attempt to stop the generator thread
-            });
-            // kafkaProducer.close();
-            // statusWebServer.stopServer();
-        }));
 
         // The main thread can continue to monitor or manage the application, if
         // necessary

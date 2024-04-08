@@ -2,7 +2,10 @@ package acme;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
+
+import org.json.JSONObject;
 
 public class Transaction {
   private final UUID scanId;
@@ -21,6 +24,18 @@ public class Transaction {
     this.itemUPC = itemUPC;
     this.unitQty = unitQty;
     this.unitPrice = unitPrice;
+  }
+
+  // Method to convert Transaction to JSON String
+  public String toJSON() {
+    JSONObject json = new JSONObject();
+    json.put("scan_id", this.getScanId().toString());
+    json.put("store_id", this.getStoreId());
+    json.put("scan_datetime", this.getScanDatetime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+    json.put("item_upc", this.getItemUPC());
+    json.put("unit_qty", this.getUnitQty());
+    json.put("unit_price", this.getUnitPrice().toString());
+    return json.toString();
   }
 
   public UUID getScanId() {
