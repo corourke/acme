@@ -40,7 +40,6 @@ CREATE TABLE retail_stores (
 -- Table 4: unbatched scans
 -- This table is actually in the datalake, but showing it here for reference
 CREATE TABLE scans (
-    batch_id VARCHAR(48),
     scan_id VARCHAR(48) PRIMARY KEY,
     store_id INTEGER,
     scan_datetime TIMESTAMP,
@@ -63,7 +62,7 @@ ALTER TABLE IF EXISTS scans
 
 -- Table 5: hourly sales by category summary
 -- This table is actually in the datalake, but showing it here for reference
-CREATE TABLE sales_summary (
+CREATE TABLE hourly_sales_summary (
     sales_day_hour TIMESTAMP,
     region VARCHAR(32), -- retail_stores.timezone
     state VARCHAR (2),
