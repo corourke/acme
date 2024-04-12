@@ -5,25 +5,25 @@ This list encapsulates the functional and operational requirements for the point
 1. **Data Generation**:
 
    - The program will be written in Java.
-   - Generate simulated point-of-sale transaction data including fields such as UPC codes, store number, date and time, quantity, price paid, globally unique batch number, and globally unique transaction number.
+   - Generate simulated point-of-sale transaction data including fields such as UPC codes, store number, date and time, quantity, price paid, ~~globally unique batch number,~~ and globally unique transaction number.
    - UPC codes are to be sourced from a list of products with fields for standard price (to be used as the basis for the transaction price) and frequency (indicating the relative frequency of sales for that product).
    - Store numbers are to be sourced from a list of stores. The stores table includes a US time zone for each store, also known as the region, which should inform the simulation of the time of day for transaction generation.
    - Generate transactions for a semi-random number of scans per store per hour,based on the time of day.
-   - Use UUIDs for ensuring the global uniqueness of batch numbers and transaction numbers.
+   - Use UUIDs for ensuring the global uniqueness of ~~batch numbers and~~ transaction numbers.
 
 2. **Output Format**:
 
-   - The output format is JSON. Each batch of transactions will be one JSON payload.
-   - Transactions should be batched by region approximately every 1000 scans or after 10 minutes, whichever comes first.
-   - Each batch of transactions will be first saved to the file system for safety, and then sent to a Kafka cluster.
-   - The file names will include a timestamp, and the number of the region in which the transaction occurred.
+   - The output format is JSON. ~~Each batch of transactions will be one JSON payload.~~
+   - ~~Transactions should be batched by region approximately every 1000 scans or after 10 minutes, whichever comes first.~~
+   - ~~Each batch of transactions will be first saved to the file system for safety, and then sent to a Kafka cluster.~~
+   - ~~The file names will include a timestamp, and the number of the region in which the transaction occurred.~~
 
 3. **Startup & Shutdown**
 
 - Read both the product database (with UPC codes) and the stores table into memory at runtime from CSV files.
 - Kafka configuration should be stored in a YAML configuration file and read in during startup.
 - Keys and other secrets should be read in via a safe mechanism.
-- Listen for an OS shutdown signal and ensure threads terminate gracefully, sending any remaining transaction batches to Kafka before shutdown.
+- Listen for an OS shutdown signal and ensure threads terminate gracefully~~, sending any remaining transaction batches to Kafka before shutdown~~.
 
 4. **Concurrency & Realism**:
 
