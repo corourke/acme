@@ -69,21 +69,18 @@ public class TransactionGenerator implements Runnable {
         Thread.sleep(60000); // Sleep for 1 minute
       } catch (InterruptedException e) {
         System.out.println("Generator interrupted, timezone: " + timezone);
-        this.producer.close();
+        this.producer.close(); // Close Kafka producer
         running = false;
       }
     }
-    this.producer.close(); // Close Kafka producer
+    // Just in case, never executes
+    this.producer.close();
     System.out.println("Generator exiting, timezone: " + timezone);
   }
 
-  // public void stopRunning() {
-  // running = false;
-  // this.producer.close();
-  // String stopMsg = "Stopping, timezone: " + timezone;
-  // System.out.println(stopMsg);
-  // Thread.currentThread().interrupt();
-  // }
+  public void stopRunning() {
+    running = false;
+  }
 
   private void generateTransactions() {
     localDateTime = LocalDateTime.now(ZoneId.of("UTC")).plusHours(offsetHours);

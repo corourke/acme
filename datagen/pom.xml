@@ -77,7 +77,7 @@
         <configuration>
           <archive>
             <manifest>
-              <mainClass>acme.PriceUpdater</mainClass>
+              <mainClass>acme.App</mainClass>
             </manifest>
           </archive>
           <descriptorRefs>
