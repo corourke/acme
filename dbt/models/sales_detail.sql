@@ -8,6 +8,7 @@ final as (
   SELECT 
     scans.scan_id,
     CAST(parse_datetime(scans.scan_datetime, 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP(6)) AS scan_datetime,
+    item_id,
     scans.item_upc,
     scans.unit_price,
     scans.unit_qty, 

@@ -34,7 +34,7 @@ public class Transaction {
     json.put("scan_datetime", this.getScanDatetime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
     json.put("item_upc", this.getItemUPC());
     json.put("unit_qty", this.getUnitQty());
-    json.put("unit_price", this.getUnitPrice().toString());
+    json.put("unit_price", this.getUnitPrice());
     return json.toString();
   }
 
