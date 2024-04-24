@@ -1,6 +1,6 @@
 {
   "doc": "Flattened Retail POS scan record.",
-  "name": "scan",
+  "name": "retail_scans",
   "namespace": "com.acme",
   "type": "record",
   "fields": [

@@ -1,0 +1,37 @@
+{
+  "type": "record",
+  "name": "item_categories",
+  "namespace": "com.acme",
+  "fields": [
+    {
+      "name": "category_code",
+      "type": "int",
+      "doc": ""
+    },
+    {
+      "name": "category_name",
+      "type": "string",
+      "doc": ""
+    },
+    {
+      "name": "category_description",
+      "type": "string",
+      "doc": ""
+    },
+    {
+      "name": "ytd_sales",
+      "type": "double",
+      "doc": ""
+    },
+    {
+      "name": "avg_price",
+      "type": "int",
+      "doc": ""
+    },
+    {
+      "name": "frequency",
+      "type": "double",
+      "doc": ""
+    }
+  ]
+}

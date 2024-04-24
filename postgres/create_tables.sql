@@ -25,8 +25,8 @@ ALTER TABLE IF EXISTS item_master
     ON DELETE RESTRICT
     NOT VALID;
 
--- Table 3: retail_stores
-CREATE TABLE retail_stores (
+-- Table 3: stores
+CREATE TABLE stores (
     store_id INTEGER PRIMARY KEY, 
     address VARCHAR(255),
     city VARCHAR (80),
@@ -49,7 +49,7 @@ CREATE TABLE scans (
 );
 ALTER TABLE IF EXISTS scans
     ADD CONSTRAINT fk_store_id FOREIGN KEY (store_id)
-    REFERENCES retail_stores (store_id) MATCH SIMPLE
+    REFERENCES stores (store_id) MATCH SIMPLE
     ON UPDATE RESTRICT
     ON DELETE RESTRICT
     NOT VALID;
@@ -64,7 +64,7 @@ ALTER TABLE IF EXISTS scans
 -- This table is actually in the datalake, but showing it here for reference
 CREATE TABLE hourly_sales_summary (
     sales_day_hour TIMESTAMP,
-    region VARCHAR(32), -- retail_stores.timezone
+    region VARCHAR(32), -- stores.timezone
     state VARCHAR (2),
     store_id INTEGER, 
     category_code INTEGER, 

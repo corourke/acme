@@ -1,7 +1,7 @@
 -- Prepare scans with store location and item category for sales analysis
 WITH stores as (
   SELECT store_id, city, state, timezone 
-  FROM acme_retail_bronze.retail_retail_stores_rt
+  FROM acme_retail_bronze.retail_stores_rt
 ),
 
 final as (

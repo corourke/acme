@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "retail_stores",
+  "name": "stores",
   "namespace": "com.acme",
   "fields": [
     {

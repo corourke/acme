@@ -10,8 +10,8 @@ SELECT
     item_categories.category_name,
     SUM(unit_qty) net_units,
     SUM(unit_qty * item_master.item_price) AS net_sales
-FROM scans_rt AS scans
-INNER JOIN retail_retail_stores_ro AS retail_stores ON scans.store_id = retail_stores.store_id
+FROM retail_scans_rt AS scans
+INNER JOIN retail_stores_ro AS retail_stores ON scans.store_id = retail_stores.store_id
 INNER JOIN retail_item_master_rt AS item_master ON scans.item_upc = item_master.item_upc
 INNER JOIN retail_item_categories_ro AS item_categories ON item_master.category_code = item_categories.category_code
 GROUP BY 1, 2, 3, 4, 5, 6, 7
