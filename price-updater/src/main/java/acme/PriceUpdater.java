@@ -20,6 +20,7 @@ import java.util.HashSet;
 
 public class PriceUpdater {
     private Properties props = new Properties();
+    private Connection DBconnection;
     private Random rand = new Random();
     private static final Logger logger = Logger.getLogger(PriceUpdater.class.getName());
     private int nextItemId = 50000;
@@ -60,27 +61,31 @@ public class PriceUpdater {
         }
 
         // The main part of the program, exits on error or when interrupted
-        Connection conn = null;
+        DBconnection = null;
         try {
-            conn = createConnection();
+            DBconnection = createConnection();
             logger.log(Level.INFO, "Connected to the PostgreSQL server successfully.");
             // Main loop
             while (!Thread.currentThread().isInterrupted()) {
                 // Check time
                 if (isBusinessHours()) {
                     // Check that connection is still valid
-                    if (!conn.isValid(5)) { // 5 seconds timeout
+                    if (!DBconnection.isValid(5)) { // 5 seconds timeout
                         logger.log(Level.WARNING, "Database connection is no longer valid, reconnecting.");
-                        conn = createConnection();
+                        DBconnection = createConnection();
                     }
                     // Do the next set of updates
-                    int categoryCode = selectRandomCategory(conn);
+                    int categoryCode = selectRandomCategory(DBconnection);
                     if (categoryCode != 0) {
                         logger.log(Level.INFO, String.format("Doing a price update for category: %d", categoryCode));
-                        updateItemPrices(conn, categoryCode);
+                        updateItemPrices(DBconnection, categoryCode);
                     }
                     // Insert a few new dummy items
-                    insertNewItems(conn, categoryCode);
+                    insertNewItems(DBconnection, categoryCode);
+
+                    // Delete a few items
+                    deleteItems(DBconnection);
+
                     // Sleep for a random time
                     sleepRandomTime();
                 } else {
@@ -115,12 +120,10 @@ public class PriceUpdater {
 
     // Update the prices of a random set of items in the given category
     private void updateItemPrices(Connection conn, int categoryCode) throws SQLException {
-        int updateCount = 100 + rand.nextInt(501); // Random number between 100 and 600
+        int updateCount = 20 + rand.nextInt(81); // Random number between 20 and 100
         String sql = "WITH updated AS (SELECT item_id FROM item_master WHERE category_code = ? ORDER BY RANDOM() LIMIT "
                 + updateCount + ") " +
                 "UPDATE item_master SET item_price = item_price * (0.9 + (0.2 * RANDOM())) FROM updated WHERE item_master.item_id = updated.item_id";
-        // System.out.println("Executing SQL: " + sql.replace("?",
-        // String.valueOf(categoryCode)));
 
         PreparedStatement pstmt = conn.prepareStatement(sql);
         pstmt.setInt(1, categoryCode);
@@ -163,6 +166,19 @@ public class PriceUpdater {
         logger.log(Level.INFO, String.format("Number of new items inserted: %d", numNewItems));
     }
 
+    private void deleteItems(Connection conn) throws SQLException {
+        int deleteCount = 5 + rand.nextInt(6); // Random number between 5 and 10
+        String sql = "DELETE from item_master where item_id in ("
+                + " SELECT item_id from item_master WHERE item_id >= 5000"
+                + " ORDER BY RANDOM() LIMIT 10)";
+        // System.out.println("Executing SQL: " + sql.replace("?",
+        // String.valueOf(categoryCode)));
+
+        PreparedStatement pstmt = conn.prepareStatement(sql);
+        pstmt.execute();
+        logger.log(Level.INFO, String.format("Number of items deleted: %d", deleteCount));
+    }
+
     // Helper function to generate a random 11-digit UPC (without check digit)
     private String generateUPC() {
         StringBuilder sb = new StringBuilder();
@@ -195,7 +211,7 @@ public class PriceUpdater {
         if (maxItemId < 50000) {
             maxItemId = 50000;
         }
-        return maxItemId + 1;
+        return maxItemId;
     }
 
     // Check if it is business hours
