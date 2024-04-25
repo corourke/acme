@@ -43,7 +43,7 @@ public class TransactionGenerator implements Runnable {
 
     kafkaProps.put("client.id", timezone + "-generator");
     this.producer = new KafkaProducer<>(kafkaProps);
-    this.kafkaTopic = "scans"; // TODO: This should be fetched from config
+    this.kafkaTopic = config.getProperty("topic");
 
     // make a list of stores in this timezone
     this.stores = stores.stream()

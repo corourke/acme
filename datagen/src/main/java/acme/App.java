@@ -71,10 +71,6 @@ public class App {
         // StatusWebServer statusWebServer = new StatusWebServer();
         // statusWebServer.startServer(8080); // Example port
 
-        // Initialize Kafka producer
-        // KafkaProducerWrapper kafkaProducer = new
-        // KafkaProducerWrapper(config.getKafkaConfig());
-
         // Make a list of the unique timezones in the stores list
         List<String> timezones = stores.stream().map(Store::getTimezone).distinct().collect(Collectors.toList());
         // Initialize and start the transaction generators

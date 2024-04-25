@@ -1,6 +1,7 @@
 itemMasterPath=resources/item_master.csv
 retailStoresPath=resources/retail_stores.csv
 outputDirectory=/tmp/datagen/batched_scans/stage
+topic=retail_scans
 
 # Standard Kafka configurations
 bootstrap.servers=pkc-rgm37.us-west-2.aws.confluent.cloud:9092
