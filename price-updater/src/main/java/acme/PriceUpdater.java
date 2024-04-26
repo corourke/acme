@@ -135,7 +135,6 @@ public class PriceUpdater {
     private void insertNewItems(Connection conn, int categoryCode) throws SQLException {
         int numNewItems = 10 + rand.nextInt(11); // Random number between 10 and 20
         String upc;
-
         nextItemId = findNextItemId(conn);
         loadExistingUPCs(conn); // Load existing UPCs into memory
         logger.log(Level.INFO, String.format("Next item_id: %d", nextItemId));
@@ -169,10 +168,8 @@ public class PriceUpdater {
     private void deleteItems(Connection conn) throws SQLException {
         int deleteCount = 5 + rand.nextInt(6); // Random number between 5 and 10
         String sql = "DELETE from item_master where item_id in ("
-                + " SELECT item_id from item_master WHERE item_id >= 5000"
+                + " SELECT item_id from item_master WHERE item_id >= 50000"
                 + " ORDER BY RANDOM() LIMIT 10)";
-        // System.out.println("Executing SQL: " + sql.replace("?",
-        // String.valueOf(categoryCode)));
 
         PreparedStatement pstmt = conn.prepareStatement(sql);
         pstmt.execute();
