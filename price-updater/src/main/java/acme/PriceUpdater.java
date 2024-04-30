@@ -120,7 +120,7 @@ public class PriceUpdater {
 
     // Update the prices of a random set of items in the given category
     private void updateItemPrices(Connection conn, int categoryCode) throws SQLException {
-        int updateCount = 20 + rand.nextInt(81); // Random number between 20 and 100
+        int updateCount = 20 + rand.nextInt(41); // Random number between 20 and 60
         String sql = "WITH updated AS (SELECT item_id FROM item_master WHERE category_code = ? ORDER BY RANDOM() LIMIT "
                 + updateCount + ") " +
                 "UPDATE item_master SET item_price = item_price * (0.9 + (0.2 * RANDOM())) FROM updated WHERE item_master.item_id = updated.item_id";
@@ -133,7 +133,7 @@ public class PriceUpdater {
 
     // Insert a few new dummy items in the given category
     private void insertNewItems(Connection conn, int categoryCode) throws SQLException {
-        int numNewItems = 10 + rand.nextInt(11); // Random number between 10 and 20
+        int numNewItems = 5 + rand.nextInt(16); // Random number between 5 and 20
         String upc;
         nextItemId = findNextItemId(conn);
         loadExistingUPCs(conn); // Load existing UPCs into memory
@@ -166,12 +166,13 @@ public class PriceUpdater {
     }
 
     private void deleteItems(Connection conn) throws SQLException {
-        int deleteCount = 5 + rand.nextInt(6); // Random number between 5 and 10
+        int deleteCount = 5 + rand.nextInt(11); // Random number between 5 and 15
         String sql = "DELETE from item_master where item_id in ("
                 + " SELECT item_id from item_master WHERE item_id >= 50000"
-                + " ORDER BY RANDOM() LIMIT 10)";
+                + " ORDER BY RANDOM() LIMIT ?)";
 
         PreparedStatement pstmt = conn.prepareStatement(sql);
+        pstmt.setInt(1, deleteCount);
         pstmt.execute();
         logger.log(Level.INFO, String.format("Number of items deleted: %d", deleteCount));
     }
@@ -220,11 +221,11 @@ public class PriceUpdater {
 
     }
 
-    // Sleep for a random time between 30 and 120 minutes
+    // Sleep for a random time
     private void sleepRandomTime() {
-        int sleepTime = 30 + rand.nextInt(91); // Random time between 30 and 90 minutes
+        int sleepTime = 15 + rand.nextInt(106); // Between 15 and 120 seconds
         try {
-            Thread.sleep(sleepTime * 60000);
+            Thread.sleep(sleepTime * 1000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

@@ -16,7 +16,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 /**
- * Data genearator
+ * Data genearator. Generates retail scan transactions related to a list of
+ * products and stores
+ * and sends them to a Kafka topic.
  */
 
 public class App {
@@ -50,7 +52,10 @@ public class App {
             System.exit(1);
         }
 
-        // Read in the lookup tables
+        // Read in the lookup tables. One potential improvement would be to query
+        // the database, but this would add an additional dependency. If this is done,
+        // be sure to query products with ID < 50000 to avoid conflicts with the price
+        // updater.
         CSVReader<Product> productReader = new CSVReader<>();
         List<Product> products = productReader.read(itemMasterPath, record -> new Product(
                 Integer.parseInt(record.get("ITEM_ID")), // ITEM_ID
