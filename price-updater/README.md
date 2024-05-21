@@ -1,8 +1,30 @@
 ## Random price updater
 
-Simulates price fluctuations and the addition of new items within a PostgreSQL database (specifically the `item_master` table defined elsewhere in this project).
+Simulates price fluctuations and the addition of new items, and removal of old items within a PostgreSQL database
+(specifically the `item_master` table defined elsewhere in this project).
 
-The purpose is to simulate real-time price changes as a large retailer might do around the holidays. The new item generation is meant to showcase new records alongside updated records in the datalake.
+The purpose is to add live activity to the demo, and showcase Hudi table mutation handling, including clustering,
+compaction, and cleaning, by inducing Postgres table inserts, updates and deletes.
+
+The updates simulate the real-time price changes a large retailer might do around the holidays.
+
+Items that are added or removed have an item_id greater than or equal to 50000 in order to preserve referential
+integrity for the scan records.
+
+### Program Logic
+
+- Reads the database connection information from a properties file.
+- Uses a shutdown hook to perform cleanup when the program is interrupted.
+- Connects to the Postgres database, periodically checks the connection, and reconnects if it is disconnected.
+- Transactions are only generated during business hours.
+- Every 15 to 120 seconds:
+  - Reads the item_categories table to select a random category to update.
+  - Reads the item_master table to find the next item_id >=50000 to use for new items.
+  - Reads the item_master table to find existing UPC codes to avoid generating duplicates.
+  - The program writes to the item_master table to update prices, insert new items, and delete items.
+    - Chooses a category_code at random, then randomly select between 20 and 60 items with that category code, and update the price by +/- 0-10% for those items.
+    - Generates and inserts 5-20 new items with item_id > 50000 using the same category_code.
+    - Deletes between 5 and 15 randomly selected items with item_id > 50000
 
 ### Setup
 

@@ -1,5 +1,6 @@
-// simulate price fluctuations and the addition of new items within a PostgreSQL database 
-// (specifically the item_master table)
+// Demonstrate table mutation handling, including clustering, compaction, and cleaning, by inducing
+// Postgres table inserts, updates and deletes. This program simulates price fluctuations, 
+// the addition of new items, and removal of items in the item_master table. 
 
 package acme;
 
