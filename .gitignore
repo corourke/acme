@@ -8,7 +8,6 @@
 # Java
 target/
 */config.properties
-*.jar
 
 
 # User-specific files

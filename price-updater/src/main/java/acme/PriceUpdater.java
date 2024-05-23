@@ -38,7 +38,7 @@ public class PriceUpdater {
     }
 
     private void shutdown() {
-        System.out.println("Shutting down...");
+        logger.log(Level.INFO, "Shutting down...");
         // Any cleanup code can go here
     }
 
@@ -47,7 +47,7 @@ public class PriceUpdater {
             // Load properties
             props.load(new FileInputStream("config.properties"));
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Failed to load properties file", e);
             System.exit(1);
         }
     }
@@ -57,7 +57,7 @@ public class PriceUpdater {
         try {
             Class.forName("org.postgresql.Driver");
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Failed to load JDBC driver", e);
             return;
         }
 
@@ -94,9 +94,17 @@ public class PriceUpdater {
                 }
             }
         } catch (SQLException e) {
-            System.out.println("SQL Error: " + e.getMessage());
+            logger.log(Level.SEVERE, "SQL Error: " + e.getMessage());
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Thread.currentThread().interrupt();
+        } finally {
+            try {
+                if (DBconnection != null && DBconnection.isValid(5)) {
+                    DBconnection.close();
+                }
+            } catch (SQLException e) {
+                logger.log(Level.SEVERE, "Failed to close the database connection", e);
+            }
         }
     }
 
