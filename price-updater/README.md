@@ -1,15 +1,19 @@
-## Random price updater
+## Random transaction generator
 
-Simulates price fluctuations and the addition of new items, and removal of old items
+Simulates transations including price fluctuations, the addition of new items, and removal of old items
 within a PostgreSQL database (specifically the `item_master` table defined elsewhere in this project).
 
-The purpose is to add live activity to the demo, and showcase Hudi table mutation handling, including clustering,
-compaction, and cleaning, by inducing Postgres table inserts, updates and deletes.
+The purpose is to add live activity to the demo, and showcase Hudi table mutation handling, including clustering, compaction, and cleaning, by inducing Postgres table inserts, updates and deletes.
 
 The updates simulate the real-time price changes a large retailer might do around the holidays.
 
-Items that are added or removed have an item_id greater than or equal to 50000 in order to preserve referential
-integrity for the scan records.
+Items that are added or removed have an item_id greater than or equal to 50000 in order to preserve referential integrity for the scan records.
+
+> [!NOTE]
+>
+> Deletes on an item master table are not very realistic. I'd like to add an additional table or two, perhaps a promotions table, or silver tables that could better show mutations.
+
+
 
 ### Setup
 
