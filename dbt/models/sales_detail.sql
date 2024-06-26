@@ -13,9 +13,9 @@ final as (
     scans.unit_price,
     scans.unit_qty, 
     CAST((unit_qty * unit_price) as decimal(10,2)) net_sale,
+    category_code,
+    category_name,
     scans.store_id,
-    category_code, 
-    category_name, 
     stores.city,
     stores.state,
     stores.timezone as region

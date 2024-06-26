@@ -9,13 +9,13 @@ MERGE INTO acme_retail_silver.sales_detail AS target USING (
     CAST(items.item_price AS DECIMAL(10, 2)) AS unit_price,
     scans.unit_qty,
     --CAST((unit_qty * unit_price) as decimal(10,2)) AS net_sale,
-    CAST((unit_qty * items.item_price) AS decimal(10, 2)) AS net_sale,
+    CAST((unit_qty * items.item_price) AS DECIMAL(10, 2)) AS net_sale,
     categories.category_code,
     categories.category_name,
     stores.store_id,
     stores.city,
     stores.state,
-    stores.timezone as region
+    stores.timezone AS region
   FROM
     acme_retail_bronze.retail_scans_rt AS scans
     INNER JOIN acme_retail_bronze.retail_stores_ro AS stores ON scans.store_id = stores.store_id
