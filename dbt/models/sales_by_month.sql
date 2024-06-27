@@ -1,3 +1,19 @@
+{{
+  config(
+    materialized='incremental',
+    file_format='hudi',
+    incremental_strategy='merge',
+    unique_key='store_id',
+    location_root='s3a://adhoc-938cf009/andy_testing/dbt_test/',
+    partition_by='state',
+    options={
+      'type': 'mor',
+      'primaryKey': 'store_id',
+      'precombineKey': '_hoodie_commit_time'
+    }
+  )
+}}
+
 -- Roll up sales by month, location, category
 
 SELECT 
