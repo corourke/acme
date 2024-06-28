@@ -1,6 +1,6 @@
 {{
   config(
-    materialized='table',
+    materialized='incremental',
     file_format='hudi',
     incremental_strategy='merge',
     unique_key='item_id',
