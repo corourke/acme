@@ -44,3 +44,16 @@ SELECT
   category_code
 FROM
   item_categories TABLESAMPLE bernoulli (30);
+
+-- create a few sample records (SQL)
+INSERT INTO retail.promotions (promotion_name,start_date,end_date,discount_type,discount_value,region,category_code,item_id,conversions) VALUES
+	 ('Save on Groceries','2024-07-15','2024-07-22','PCT_OFF',5.00,NULL,20100,NULL,0),
+	 ('Save on Paper Goods','2024-07-15','2024-07-22','PCT_OFF',8.00,NULL,20190,NULL,0),
+	 ('Save on Clothing, Men’s','2024-07-15','2024-07-22','PCT_OFF',5.00,NULL,20200,NULL,0),
+	 ('Save on Housewares','2024-07-15','2024-07-22','PCT_OFF',5.00,NULL,20280,NULL,0),
+	 ('Save on Appliances','2024-07-15','2024-07-22','PCT_OFF',9.00,NULL,20300,NULL,0),
+	 ('Save on Audio','2024-07-15','2024-07-22','PCT_OFF',8.00,NULL,20330,NULL,0),
+	 ('Save on Computers','2024-07-15','2024-07-22','PCT_OFF',5.00,NULL,20370,NULL,0),
+	 ('Save on Jewelry','2024-07-15','2024-07-22','PCT_OFF',5.00,NULL,20400,NULL,0),
+	 ('Save on Hardware and Tools','2024-07-15','2024-07-22','PCT_OFF',5.00,NULL,20600,NULL,0),
+	 ('Save on Lumber','2024-07-15','2024-07-22','PCT_OFF',6.00,NULL,20640,NULL,0);
