@@ -14,8 +14,6 @@ Tables:
 <img alt="Table ER diagram" src="https://github.com/corourke/acme/blob/main/doc/images/diagrams-tables.png?raw=true">
 </picture>
 
-Note that the `batched_scans` table is to be generated with a data generator, and the `sales_summary` table is to be created with stream processing.
-
 I'm working on a comprehensive and standalone setup guide. In the meantime, the <a href="https://github.com/corourke/acme/blob/1d030873fe3b34fdf62fbfecf17a6db049c0b7f1/doc/Onehouse_Postgres_CDC_Guide_2401.pdf">Onehouse PostgreSQL CDC Getting Started Guide will have to do.</a>
 
 ### Notes
