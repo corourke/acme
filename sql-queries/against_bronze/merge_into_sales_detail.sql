@@ -1,9 +1,7 @@
 MERGE INTO acme_retail_silver.sales_detail AS target USING (
   SELECT
     scans.scan_id,
-    CAST(
-      parse_datetime (scans.scan_datetime, 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP(6)
-    ) AS scan_datetime,
+    CAST( parse_datetime (scans.scan_datetime, 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP(6) ) AS scan_datetime, 
     scans.item_upc,
     --scans.unit_price,
     CAST(items.item_price AS DECIMAL(10, 2)) AS unit_price,
@@ -16,14 +14,12 @@ MERGE INTO acme_retail_silver.sales_detail AS target USING (
     stores.city,
     stores.state,
     stores.timezone AS region
-  FROM
-    acme_retail_bronze.retail_scans_rt AS scans
+  FROM acme_retail_bronze.retail_scans_rt AS scans
     INNER JOIN acme_retail_bronze.retail_stores_ro AS stores ON scans.store_id = stores.store_id
     INNER JOIN acme_retail_bronze.retail_item_master_rt AS items ON scans.item_upc = items.item_upc
     INNER JOIN acme_retail_bronze.retail_item_categories_ro AS categories ON items.category_code = categories.category_code
 ) AS source ON target.scan_id = source.scan_id WHEN MATCHED THEN
-UPDATE
-SET
+UPDATE SET
   scan_datetime = source.scan_datetime,
   item_upc = source.item_upc,
   unit_price = source.unit_price,

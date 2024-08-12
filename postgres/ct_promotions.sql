@@ -19,8 +19,6 @@ CREATE TABLE
     conversions INTEGER DEFAULT 0
   );
 
-ALTER TABLE promotions ADD CONSTRAINT fk_promotions_category_code FOREIGN KEY (category_code) REFERENCES item_categories (category_code);
-
 ALTER TABLE IF EXISTS retail.promotions OWNER TO cdc_user;
 
 GRANT ALL ON TABLE retail.promotions TO cdc_user;
