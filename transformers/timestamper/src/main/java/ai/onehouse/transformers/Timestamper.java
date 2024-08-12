@@ -36,12 +36,8 @@ public class Timestamper implements Transformer {
       timestampGranularity = "millisecond";
     }
 
-    // return dataset.withColumn(timestampColumn,
-    // functions.date_trunc(timestampGranularity,
-    // functions.current_timestamp()).cast(DataTypes.TimestampType));
-
-    // debugging with the simplest case
-    return dataset.withColumn(timestampColumn, functions.current_timestamp());
+    return dataset.withColumn(timestampColumn,
+        functions.date_trunc(timestampGranularity, functions.current_timestamp()));
 
   }
 
