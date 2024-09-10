@@ -13,4 +13,6 @@ CREATE TABLE
     city STRING,
     state STRING,
     region STRING
-  ) PARTITIONED BY (region) LOCATION 's3://acme-retail-data/silver_tables/' TBLPROPERTIES ('table_type' = 'iceberg')
+  ) PARTITIONED BY (region) 
+  LOCATION 's3://acme-retail-data/silver_tables/' 
+  TBLPROPERTIES ('table_type' = 'iceberg')
