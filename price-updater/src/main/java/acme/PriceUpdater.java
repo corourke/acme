@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -39,6 +40,7 @@ public class PriceUpdater {
 
     private void shutdown() {
         logger.log(Level.INFO, "Shutting down...");
+        closeConnection();
         // Any cleanup code can go here
     }
 
@@ -96,15 +98,9 @@ public class PriceUpdater {
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "SQL Error: " + e.getMessage());
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            // Nothing to do here as the interrupt will be handled by the shutdown hook
         } finally {
-            try {
-                if (DBconnection != null && DBconnection.isValid(5)) {
-                    DBconnection.close();
-                }
-            } catch (SQLException e) {
-                logger.log(Level.SEVERE, "Failed to close the database connection", e);
-            }
+            closeConnection();
         }
     }
 
@@ -114,6 +110,17 @@ public class PriceUpdater {
                 "jdbc:postgresql://" + props.getProperty("database.host") + ":" +
                         props.getProperty("database.port") + "/" + props.getProperty("database.name"),
                 props.getProperty("database.user"), props.getProperty("database.password"));
+    }
+
+    private void closeConnection() {
+        System.out.println("Closing the database connection...");
+        try {
+            if (DBconnection != null && DBconnection.isValid(5)) {
+                DBconnection.close();
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Failed to close the database connection", e);
+        }
     }
 
     // Select a random category_code from the item_categories table
@@ -204,6 +211,7 @@ public class PriceUpdater {
         while (rs.next()) {
             existingUPCs.add(rs.getString("item_upc"));
         }
+        logger.log(Level.INFO, String.format("Loaded %d UPCs", existingUPCs.size()));
     };
 
     // Helper function to find the next item_id (over 50000)
@@ -232,9 +240,10 @@ public class PriceUpdater {
 
     // Sleep for a random time
     private void sleepRandomTime() {
-        int sleepTime = 15 + rand.nextInt(106); // Between 15 and 120 seconds
+        int sleepTime = 5 + rand.nextInt(16); // Between 5 and 20
+        logger.log(Level.INFO, String.format("Sleeping for %d minutes", sleepTime));
         try {
-            Thread.sleep(sleepTime * 1000);
+            TimeUnit.MINUTES.sleep(sleepTime);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
