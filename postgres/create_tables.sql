@@ -61,7 +61,7 @@ ALTER TABLE IF EXISTS scans
     NOT VALID;
 
 -- Table 5: hourly sales by category summary
--- This table is actually in the datalake, but showing it here for reference
+-- This table is actually not in the datalake, but showing it here for reference
 CREATE TABLE hourly_sales_summary (
     sales_day_hour TIMESTAMP,
     region VARCHAR(32), -- stores.timezone
@@ -75,4 +75,4 @@ CREATE TABLE hourly_sales_summary (
     row_timestamp TIMESTAMP
 );
 CREATE INDEX idx_sales_summary 
-    ON sales_hour_category_summary (sales_day_hour, store_id, category_code);
+    ON hourly_sales_summary (sales_day_hour, store_id, category_code);

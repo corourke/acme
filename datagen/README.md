@@ -14,6 +14,8 @@ To start:
 
 Make a copy of the `config.properties.example` file to `config.properties` and edit according to your environment.
 
+Be sure to replace API_KEY and API_SECRET in the `config.properties` file with the credentials from your kafka environment. (These are just placeholders, not environment variables.)
+
 Then:
 
 ```bash
