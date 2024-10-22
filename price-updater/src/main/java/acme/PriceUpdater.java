@@ -20,13 +20,14 @@ import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.util.HashSet;
 
-public class PriceUpdater {
+public class PriceUpdater implements Runnable {
     private Properties props = new Properties();
     private Connection DBconnection;
     private Random rand = new Random();
     private static final Logger logger = Logger.getLogger(PriceUpdater.class.getName());
-    private int nextItemId = 50000;
+
     private Set<String> existingUPCs = new HashSet<>();
+    private static final int MIN_DELETABLE_ITEM_ID = 50000;
 
     public static void main(String[] args) {
         PriceUpdater updater = new PriceUpdater();
@@ -54,7 +55,7 @@ public class PriceUpdater {
         }
     }
 
-    private void run() {
+    public void run() {
         // Register JDBC driver
         try {
             Class.forName("org.postgresql.Driver");
@@ -136,7 +137,7 @@ public class PriceUpdater {
 
     // Update the prices of a random set of items in the given category
     private void updateItemPrices(Connection conn, int categoryCode) throws SQLException {
-        int updateCount = 20 + rand.nextInt(41); // Random number between 20 and 60
+        int updateCount = getRandomIntBetween(20, 60); // Replace: 20 + rand.nextInt(41)
         String sql = "WITH updated AS (SELECT item_id FROM item_master WHERE category_code = ? ORDER BY RANDOM() LIMIT "
                 + updateCount + ") " +
                 "UPDATE item_master SET item_price = item_price * (0.9 + (0.2 * RANDOM())) FROM updated WHERE item_master.item_id = updated.item_id";
@@ -149,48 +150,48 @@ public class PriceUpdater {
 
     // Insert a few new dummy items in the given category
     private void insertNewItems(Connection conn, int categoryCode) throws SQLException {
-        int numNewItems = 5 + rand.nextInt(16); // Random number between 5 and 20
+        int numNewItems = getRandomIntBetween(5, 20);
         String upc;
-        nextItemId = findNextItemId(conn);
-        loadExistingUPCs(conn); // Load existing UPCs into memory
+        int nextItemId = findNextItemId(conn);
         logger.log(Level.INFO, String.format("Next item_id: %d", nextItemId));
-
-        do {
-            upc = generateUPC();
-        } while (existingUPCs.contains(upc)); // Efficient in-memory check
-        existingUPCs.add(upc); // Keep track of the new UPC
+        // Load existing UPCs if the set is empty
+        if (existingUPCs.isEmpty()) {
+            loadExistingUPCs(conn);
+        }
 
         String sql = "INSERT INTO item_master "
                 + "(category_code, item_id, item_price, item_upc, repl_qty, _frequency) "
                 + "VALUES (?, ?, 1.00, ?, 1, 1)";
 
-        PreparedStatement pstmt = conn.prepareStatement(sql);
-        for (int i = 1; i <= numNewItems; i++) {
-            // Generate new UPC
-            do {
-                upc = generateUPC();
-            } while (existingUPCs.contains(upc)); // Efficient in-memory check
-            existingUPCs.add(upc); // Keep track of the new UPC
-            // Insert the new item row
-            pstmt.setInt(1, categoryCode);
-            pstmt.setInt(2, nextItemId + i); // Ensure unique item_id values
-            pstmt.setString(3, upc);
-            pstmt.executeUpdate();
-        }
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            for (int i = 1; i <= numNewItems; i++) {
+                do {
+                    upc = generateUPC();
+                } while (existingUPCs.contains(upc));
+                existingUPCs.add(upc);
 
-        logger.log(Level.INFO, String.format("Number of new items inserted: %d", numNewItems));
+                pstmt.setInt(1, categoryCode);
+                pstmt.setInt(2, nextItemId++);
+                pstmt.setString(3, upc);
+                pstmt.addBatch();
+            }
+            int[] updateCounts = pstmt.executeBatch();
+            logger.log(Level.INFO, String.format("Number of new items inserted: %d", updateCounts.length));
+        }
     }
 
     private void deleteItems(Connection conn) throws SQLException {
-        int deleteCount = 5 + rand.nextInt(11); // Random number between 5 and 15
+        int deleteCount = getRandomIntBetween(5, 10);
         String sql = "DELETE from item_master where item_id in ("
-                + " SELECT item_id from item_master WHERE item_id >= 50000"
+                + " SELECT item_id from item_master WHERE item_id >= ?"
                 + " ORDER BY RANDOM() LIMIT ?)";
 
-        PreparedStatement pstmt = conn.prepareStatement(sql);
-        pstmt.setInt(1, deleteCount);
-        pstmt.execute();
-        logger.log(Level.INFO, String.format("Number of items deleted: %d", deleteCount));
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, MIN_DELETABLE_ITEM_ID);
+            pstmt.setInt(2, deleteCount);
+            int rowsAffected = pstmt.executeUpdate();
+            logger.log(Level.INFO, String.format("Number of items deleted: %d", rowsAffected));
+        }
     }
 
     // Helper function to generate a random 11-digit UPC (without check digit)
@@ -214,17 +215,17 @@ public class PriceUpdater {
         logger.log(Level.INFO, String.format("Loaded %d UPCs", existingUPCs.size()));
     };
 
-    // Helper function to find the next item_id (over 50000)
+    // Helper function to find the next item_id
     private int findNextItemId(Connection conn) throws SQLException {
-        int maxItemId = 50000;
         String sql = "SELECT MAX(item_id) max_item_id FROM item_master";
         PreparedStatement pstmt = conn.prepareStatement(sql);
         ResultSet rs = pstmt.executeQuery();
+        int maxItemId = MIN_DELETABLE_ITEM_ID;
         if (rs.next()) {
             maxItemId = rs.getInt("max_item_id");
         }
-        if (maxItemId < 50000) {
-            maxItemId = 50000;
+        if (maxItemId < MIN_DELETABLE_ITEM_ID) {
+            maxItemId = MIN_DELETABLE_ITEM_ID;
         }
         return maxItemId;
     }
@@ -240,13 +241,21 @@ public class PriceUpdater {
 
     // Sleep for a random time
     private void sleepRandomTime() {
-        int sleepTime = 5 + rand.nextInt(16); // Between 5 and 20
+        int sleepTime = getRandomIntBetween(5, 20); // Replace: 5 + rand.nextInt(16)
         logger.log(Level.INFO, String.format("Sleeping for %d minutes", sleepTime));
         try {
             TimeUnit.MINUTES.sleep(sleepTime);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    // Return a random integer between min and max (inclusive)
+    private int getRandomIntBetween(int min, int max) {
+        if (min > max) {
+            throw new IllegalArgumentException("max must be greater than or equal to min");
+        }
+        return min + rand.nextInt(max - min + 1);
     }
 
 }
