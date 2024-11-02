@@ -155,7 +155,7 @@ public class PriceUpdater implements Runnable {
         int nextItemId = findNextItemId(conn);
         logger.log(Level.INFO, String.format("Next item_id: %d", nextItemId));
         // Load existing UPCs if the set is empty
-        if (existingUPCs.isEmpty()) {
+        if (existingUPCs.isEmpty()) { // TODO: this is always evaluating to true
             loadExistingUPCs(conn);
         }
 

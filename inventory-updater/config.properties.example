@@ -1,0 +1,19 @@
+itemMasterPath=resources/item_master.csv
+retailStoresPath=resources/retail_stores.csv
+outputDirectory=/tmp/datagen/scans/stage
+topic=retail_scans
+
+# Standard Kafka configurations
+bootstrap.servers=pkc-rgm37.us-west-2.aws.confluent.cloud:9092
+security.protocol=SASL_SSL
+sasl.mechanism=PLAIN
+sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username='key' password='secret';
+# Confluent Schema Registry (if used)
+schema.registry.url=https://psrc-lq2dm.us-east-2.aws.confluent.cloud
+
+# For postgres database
+database.host=acme-db.cc64n2qunrtu.us-west-2.rds.amazonaws.com
+database.port=5432
+database.user=postgres
+database.name=acme
+database.password=<password>
