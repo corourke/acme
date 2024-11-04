@@ -8,15 +8,15 @@
       "type": "int"
     },
     {
+      "name": "item_id",
+      "type": "int"
+    },
+    {
       "name": "qty_in_stock",
       "type": "int"
     },
     {
       "name": "qty_on_order",
-      "type": "int"
-    },
-    {
-      "name": "item_id",
       "type": "int"
     },
     {
