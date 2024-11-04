@@ -21,6 +21,10 @@ public class InventoryCount {
     this.qtyLastUpdated = LocalDateTime.now();
   }
 
+  public String toJson() {
+    return toJson(null);
+  }
+
   // Method to convert InventoryCount to JSON String
   public String toJson(Boolean isDeleted) {
     JSONObject json = new JSONObject();

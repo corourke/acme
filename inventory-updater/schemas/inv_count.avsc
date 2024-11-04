@@ -1,0 +1,28 @@
+{
+  "type": "record",
+  "name": "InventoryCount",
+  "namespace": "acme.objects",
+  "fields": [
+    {
+      "name": "store_id",
+      "type": "int"
+    },
+    {
+      "name": "qty_in_stock",
+      "type": "int"
+    },
+    {
+      "name": "qty_on_order",
+      "type": "int"
+    },
+    {
+      "name": "item_id",
+      "type": "int"
+    },
+    {
+      "name": "qty_last_updated",
+      "type": "string",
+      "logicalType": "timestamp-millis"
+    }
+  ]
+}

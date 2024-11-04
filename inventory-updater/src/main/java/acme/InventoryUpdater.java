@@ -15,7 +15,6 @@ import acme.objects.Product;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.logging.LogManager;
 
 public class InventoryUpdater {
     private static Properties props = new Properties();
@@ -29,7 +28,7 @@ public class InventoryUpdater {
         System.setProperty("log4j.skipJansi", "true");
         logger.setLevel(Level.INFO);
         System.setProperty("java.util.logging.SimpleFormatter.format",
-                "%4: %2 %1 %1, %1 %1:%1:%1 %1  - %5%6%n");
+                "\n%4: %2 %1 %1, %1 %1:%1:%1 %1  - %5%6%n");
 
         // Load properties
         try {

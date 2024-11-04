@@ -17,3 +17,8 @@ database.port=5432
 database.user=postgres
 database.name=acme
 database.password=<password>
+
+# For S3
+region=us-west-2
+bucketName=acme-retail-data
+folderPath=data_files

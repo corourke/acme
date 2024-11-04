@@ -22,14 +22,22 @@ import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class InventoryCounter implements Runnable {
+    private static final Logger logger = Logger.getLogger(InventoryCounter.class.getName());
     private KafkaConsumer<String, String> consumer;
+    private S3FileUploader s3Uploader;
     private boolean running = true;
     private long lastWriteTime = System.currentTimeMillis(); // Track the last write time
+    private long lastInventoryWriteTime = System.currentTimeMillis(); // Track the last inventory write time
+
     private List<Product> products; // list of producst item_master for item_id lookup
     private List<InventoryTransaction> inventoryTransactions = new ArrayList<>(); // cache of trx
+    private List<InventoryTransaction> transactionsToDelete = new ArrayList<>(); // cache of trx to delete
     private List<InventoryCount> inventoryCounts = new ArrayList<InventoryCount>(); // inventory counts
+
     private static final String TOPIC = "retail_scans";
     private static final int MAX_INV_TRX_ROWS = 5000; // Max # of rows in file
     private static final int MAX_WRITE_INTERVAL_SECONDS = 300; // Max time in seconds before forcing a write
@@ -50,188 +58,232 @@ public class InventoryCounter implements Runnable {
 
         this.consumer = new KafkaConsumer<>(kafkaProps);
         this.consumer.subscribe(Collections.singletonList(TOPIC));
+        this.s3Uploader = new S3FileUploader(props); // Initialize S3FileUploader
         this.products = products;
+
     }
 
     @Override
     public void run() {
         running = true;
-        int messageCount = 0; // Initialize a counter for consumed messages
-        Transaction scan;
-        InventoryTransaction inventoryTransaction;
-        Random random = new Random(); // Initialize Random instance
+        int messageCount = 0;
+        Random random = new Random();
 
         try {
             while (running) {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
                 for (ConsumerRecord<String, String> record : records) {
-                    // System.out.printf("Consumed message: key = %s, value = %s, offset = %d%n",
-                    // record.key(), record.value(), record.offset()); // TODO: remove this
-
-                    // Parse JSON and create Transaction object
-                    try {
-                        scan = Transaction.fromJson(record.value());
-                        // System.out.printf("Converted transaction: %s\n", scan.toJSON(null));
-
-                        messageCount++; // Increment the counter for each consumed message
-                    } catch (Exception e) {
-                        System.err.printf("Failed to parse record value: %s%n", record.value());
-                        e.printStackTrace();
-                        running = false;
-                        break;
-                    }
-
-                    // Lookup the item_id from the item_upc in the products list
-                    final Transaction currentScan = scan;
-                    Product product = products.stream()
-                            .filter(p -> p.getItemUPC().equals(currentScan.getItemUPC()))
-                            .findFirst().orElse(null);
-                    if (product == null) {
-                        System.err.printf("\nProduct not found for UPC: %s%n", scan.getItemUPC());
-                        running = false; // TODO: remove this as we want to keep processing
+                    Transaction scan = parseTransaction(record);
+                    if (scan == null)
                         continue;
-                    }
 
-                    // Check to see if the item_id/store_id combination has an InventoryCount
-                    // If there is no InventoryCount, create one
-                    InventoryCount inventoryCount = inventoryCounts.stream()
-                            .filter(ic -> ic.getItemId() == product.getItemId()
-                                    && ic.getStoreId() == currentScan.getStoreId())
-                            .findFirst()
-                            .orElse(null);
+                    Product product = findProduct(scan);
+                    if (product == null)
+                        continue;
 
-                    if (inventoryCount == null) {
-                        // Create new inventory count if none exists
-                        // InventoryCount(int itemId, int storeId, int qty_in_stock, int qty_on_order)
-                        inventoryCount = new InventoryCount(
-                                product.getItemId(),
-                                scan.getStoreId(),
-                                (product.getRepl_qty() == 1 ? 6 : product.getRepl_qty()), // initial count logic
-                                0 // initial on_order is 0
-                        );
-                        inventoryCounts.add(inventoryCount);
-                    }
-                    // System.out.printf("inventory count: %s\n", inventoryCount.toJson(null));
+                    InventoryCount inventoryCount = findOrCreateInventoryCount(scan, product);
+                    handleRestock(inventoryCount, product, random);
+                    processSaleTransaction(scan, product, inventoryCount);
+                    handleReorders(product, inventoryCount);
 
-                    // Handle product on order
-                    // If the product qty_on_order is greater than 0, then pick a random number
-                    // between 1 and 4
-                    if (inventoryCount.getQtyOnOrder() > 0) {
-                        int randomNumber = random.nextInt(4) + 1; // Generate a random number between 1 and 4
-                        // If the the number is 1 or 2 do nothing. If the number is 3 or 4 create a
-                        // Restock.
-                        if (randomNumber == 3 || randomNumber == 4) {
-                            int restockQty = (randomNumber == 3) ? product.getRepl_qty()
-                                    : inventoryCount.getQtyOnOrder();
-                            if (inventoryCount.getQtyInStock() < 0) {
-                                restockQty += (inventoryCount.getQtyInStock() * -1);
-                            }
-                            // Create a Restock InventoryTransaction
-                            // System.out.printf("Restock: %d\n", restockQty);
-                            InventoryTransaction restockTransaction = new InventoryTransaction(
-                                    "Restock", // trxType
-                                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), // invDateString
-                                    scan.getStoreId(), // storeId
-                                    product.getItemId(), // itemId
-                                    restockQty // unitQty
-                            );
-                            // Increment the product qty_in_stock by the quantity of the Restock
-                            // InventoryTransaction
-                            inventoryCount.setQtyInStock(inventoryCount.getQtyInStock() + restockQty);
-                            // Decrement the product qty_on_order by the quantity of the Restock
-                            // InventoryTransaction
-                            inventoryCount.setQtyOnOrder(inventoryCount.getQtyOnOrder() - restockQty);
-                            // Add the Restock InventoryTransaction to the inventoryTransactions list
-                            inventoryTransactions.add(restockTransaction);
+                    if (shouldWriteToFile()) {
+                        handleTransactionsToDelete();
+                        if (!writeAndUploadTransactions()) {
+                            running = false;
                         }
                     }
-
-                    // Create a SalesInventoryTransaction object and decrement the qty_in_stock
-                    inventoryTransaction = new InventoryTransaction(
-                            "Sale", // trxType
-                            scan.getScanDatetime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), // invDateString
-                            scan.getStoreId(), // storeId
-                            product.getItemId(), // itemId
-                            scan.getUnitQty() // unitQty
-                    );
-                    inventoryTransactions.add(inventoryTransaction);
-
-                    // Decrement the scan.unitQty from the product's qty_in_stock
-                    inventoryCount.setQtyInStock(inventoryCount.getQtyInStock() - scan.getUnitQty());
-
-                    // If the qty_in_stock is less than repl_qty, create an Order
-                    // Inventory Transaction then increment the qty_on_order
-                    if (inventoryCount.getQtyInStock() < product.getRepl_qty()) {
-                        inventoryTransaction = new InventoryTransaction(
-                                "Order", // trxType
-                                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), // invDateString
-                                scan.getStoreId(), // storeId
-                                product.getItemId(), // itemId
-                                product.getRepl_qty() // unitQty
-                        );
-                        inventoryTransactions.add(inventoryTransaction);
-                        inventoryCount
-                                .setQtyOnOrder(inventoryCount.getQtyOnOrder() + inventoryTransaction.getUnitQty());
+                    // Write the inventoryCounts to a file and upload to S3 after
+                    // MAX_WRITE_INTERVAL_SECONDS has elapsed
+                    if (System.currentTimeMillis() - lastInventoryWriteTime >= MAX_WRITE_INTERVAL_SECONDS * 1000) {
+                        writeAndUploadInventoryCounts();
                     }
-
-                    // If the qty_in_stock is less than 1, its a stockout, create a Transfer
-                    // Inventory Transaction
-                    if (inventoryCount.getQtyInStock() < MIN_INV_LEVEL) {
-                        int transferQty = MIN_INV_LEVEL - inventoryCount.getQtyInStock();
-                        System.out.printf("TFR inventory count: %s\n", transferQty);
-                        // Create a Transfer Inventory Transaction, incrementing the QtyInStock by the
-                        // quantity below the minimum threshold
-                        inventoryTransaction = new InventoryTransaction(
-                                "Transfer", // trxType
-                                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), // invDateString
-                                scan.getStoreId(), // storeId
-                                product.getItemId(), // itemId
-                                transferQty // unitQty
-                        );
-                        inventoryTransactions.add(inventoryTransaction);
-                        inventoryCount
-                                .setQtyInStock(inventoryCount.getQtyInStock() + inventoryTransaction.getUnitQty());
-                    }
-
-                    // When cache grows or time elapses, write to a file
-                    long currentTime = System.currentTimeMillis();
-                    long elapsedTime = (currentTime - lastWriteTime) / 1000; // Convert to seconds
-
-                    if (inventoryTransactions.size() >= MAX_INV_TRX_ROWS || elapsedTime >= MAX_WRITE_INTERVAL_SECONDS) {
-                        writeInventoryTransactionsToFile();
-                        lastWriteTime = currentTime; // Update the last write time
-                    }
-                } // end of for loop
-                  // Commit offsets after processing the batch
+                    messageCount++;
+                }
                 consumer.commitSync();
-                // Update the count on the sameline
-                System.out.printf("\rConsumed scan messages count: %d, inventoryCount: %d",
-                        messageCount,
+                System.out.printf("\rConsumed scan messages count: %d, inventoryCount: %d", messageCount,
                         inventoryCounts.size());
                 Thread.sleep(1000);
             }
         } catch (InterruptedException e) {
-            running = false;
+            logger.log(Level.SEVERE, "InventoryCounter interrupted: " + e.getMessage());
         } finally {
             consumer.close();
-            System.out.println("Shutdown InventoryCounter.");
+            s3Uploader.close();
+            running = false;
+            logger.log(Level.INFO, "Shutdown InventoryCounter.");
         }
-
     }
 
-    private void writeInventoryTransactionsToFile() {
+    private Transaction parseTransaction(ConsumerRecord<String, String> record) {
+        try {
+            return Transaction.fromJson(record.value());
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to parse record value: {0}", record.value());
+            return null;
+        }
+    }
+
+    private Product findProduct(Transaction scan) {
+        return products.stream()
+                .filter(p -> p.getItemUPC().equals(scan.getItemUPC()))
+                .findFirst()
+                .orElseGet(() -> {
+                    logger.log(Level.SEVERE, "Product not found for UPC: {0}", scan.getItemUPC());
+                    return null;
+                });
+    }
+
+    private InventoryCount findOrCreateInventoryCount(Transaction scan, Product product) {
+        return inventoryCounts.stream()
+                .filter(ic -> ic.getItemId() == product.getItemId() && ic.getStoreId() == scan.getStoreId())
+                .findFirst()
+                .orElseGet(() -> createInventoryCount(scan, product));
+    }
+
+    private InventoryCount createInventoryCount(Transaction scan, Product product) {
+        InventoryCount inventoryCount = new InventoryCount(
+                product.getItemId(),
+                scan.getStoreId(),
+                (product.getRepl_qty() == 1 ? 6 : product.getRepl_qty()), // QtyInStock
+                0); // QtyOnOrder
+        inventoryCounts.add(inventoryCount);
+        return inventoryCount;
+    }
+
+    private void handleRestock(InventoryCount inventoryCount, Product product, Random random) {
+        // If there are items on order, randomly decide if restocking
+        if (inventoryCount.getQtyOnOrder() > 0 && random.nextInt(4) >= 2) {
+            // Randomly determine the restock quantity
+            int restockQty = (random.nextInt(2) == 0) ? product.getRepl_qty() : inventoryCount.getQtyOnOrder();
+            createAndAddTransaction("Restock", restockQty, inventoryCount, product);
+        }
+    }
+
+    private void processSaleTransaction(Transaction scan, Product product, InventoryCount inventoryCount) {
+        createAndAddTransaction("Sale", scan.getUnitQty(), inventoryCount, product);
+        if (inventoryCount.getQtyInStock() < MIN_INV_LEVEL) {
+            int transferQty = MIN_INV_LEVEL - inventoryCount.getQtyInStock();
+            createAndAddTransaction("TransferIn", transferQty, inventoryCount, product);
+            // Also create a TransferOut transaction that we will save for deletion later
+            createAndAddTransaction("TransferOut", transferQty, inventoryCount, product);
+        }
+    }
+
+    private void handleReorders(Product product, InventoryCount inventoryCount) {
+        if (inventoryCount.getQtyInStock() < product.getRepl_qty()) {
+            createAndAddTransaction("Order", product.getRepl_qty(), inventoryCount, product);
+        }
+    }
+
+    private void handleTransactionsToDelete() {
+        // Remove the first 20% of transactions in the delete list
+        int numToDelete = (int) (transactionsToDelete.size() * 0.2);
+        logger.log(Level.INFO, String.format("\nPreparing to delete %d of %d transactions from the delete list.",
+                numToDelete, transactionsToDelete.size()));
+
+        if (numToDelete > 0) {
+            List<InventoryTransaction> toRemove = new ArrayList<>();
+            transactionsToDelete.subList(0, numToDelete).forEach(t -> {
+                // Create a new transaction with isDeleted set to true
+                InventoryTransaction deletedTransaction = new InventoryTransaction(
+                        t.getTrxType(),
+                        t.getInvDate(),
+                        t.getStoreId(),
+                        t.getItemId(),
+                        t.getUnitQty());
+                deletedTransaction.setDeleted(true);
+                inventoryTransactions.add(deletedTransaction);
+                toRemove.add(t);
+            });
+            transactionsToDelete.removeAll(toRemove);
+            logger.log(Level.INFO, String.format("\nDeleted %d transactions from the delete list.", toRemove.size()));
+        }
+    }
+
+    private void createAndAddTransaction(String type, int qty, InventoryCount inventoryCount, Product product) {
+        InventoryTransaction transaction = new InventoryTransaction(
+                type,
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+                inventoryCount.getStoreId(),
+                product.getItemId(),
+                qty);
+        inventoryTransactions.add(transaction);
+
+        if (type.equals("Restock")) {
+            inventoryCount.setQtyInStock(inventoryCount.getQtyInStock() + qty);
+            inventoryCount.setQtyOnOrder(inventoryCount.getQtyOnOrder() - qty);
+        } else if (type.equals("TransferIn")) {
+            inventoryCount.setQtyInStock(inventoryCount.getQtyInStock() + qty);
+        } else if (type.equals("Sale")) {
+            inventoryCount.setQtyInStock(inventoryCount.getQtyInStock() - qty);
+        } else if (type.equals("Order")) {
+            inventoryCount.setQtyOnOrder(inventoryCount.getQtyOnOrder() + qty);
+        } else if (type.equals("TransferOut")) {
+            // No impact to inventory counts
+            // Save this transaction for deletion later
+            transactionsToDelete.add(transaction);
+        }
+    }
+
+    private boolean shouldWriteToFile() {
+        long currentTime = System.currentTimeMillis();
+        long elapsedTime = (currentTime - lastWriteTime) / 1000;
+        return inventoryTransactions.size() >= MAX_INV_TRX_ROWS || elapsedTime >= MAX_WRITE_INTERVAL_SECONDS;
+    }
+
+    private boolean writeAndUploadTransactions() {
+        String fileName = writeInventoryTransactionsToFile();
+        lastWriteTime = System.currentTimeMillis();
+        return fileName != null && s3Uploader.uploadFile(fileName);
+    }
+
+    private String writeInventoryTransactionsToFile() {
         // Create a file name based on the current date and time
-        String fileName = "inventory_transactions_"
+        String fileName = "/tmp/inventory_transactions_"
                 + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddhhmmss")) + ".json";
+
         // Write the inventoryTransactions to the file
+        logger.log(Level.INFO, "\nWriting inventory transactions to file: " + fileName);
         try (FileWriter fileWriter = new FileWriter(fileName)) {
             for (InventoryTransaction transaction : inventoryTransactions) {
-                fileWriter.write(transaction.toJson(Boolean.FALSE) + "\n");
+                fileWriter.write(transaction.toJson() + "\n");
             }
         } catch (IOException e) {
-            System.err.println("Error writing inventory transactions to file: " + e.getMessage());
+            logger.log(Level.SEVERE, "Error writing inventory transactions to file: " + e.getMessage());
+            return null;
         }
+
         // Clear the list after writing to file
         inventoryTransactions.clear();
+
+        // Return the generated file name
+        return fileName;
     }
+
+    private boolean writeAndUploadInventoryCounts() {
+        String fileName = writeInventoryCountsToFile();
+        lastInventoryWriteTime = System.currentTimeMillis();
+        return fileName != null && s3Uploader.uploadFile(fileName);
+    }
+
+    private String writeInventoryCountsToFile() {
+        // Create a file name based on the current date and time
+        String fileName = "/tmp/inventory_counts_"
+                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddhhmmss")) + ".json";
+
+        // Write the inventoryCounts to the file
+        // Note that we do not clear the inventoryCounts list after writing to file
+        logger.log(Level.INFO, "\nWriting inventory counts to file: " + fileName);
+        try (FileWriter fileWriter = new FileWriter(fileName)) {
+            for (InventoryCount count : inventoryCounts) {
+                fileWriter.write(count.toJson() + "\n");
+            }
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "Error writing inventory counts to file: " + e.getMessage());
+            return null;
+        }
+        // Return the generated file name
+        return fileName;
+    }
+
 }

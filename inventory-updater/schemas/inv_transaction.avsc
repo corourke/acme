@@ -1,0 +1,42 @@
+{
+  "type": "record",
+  "name": "InventoryTransaction",
+  "namespace": "acme.objects",
+  "fields": [
+    {
+      "name": "trx_id",
+      "type": "string",
+      "logicalType": "uuid"
+    },
+    {
+      "name": "trx_type",
+      "type": "string"
+    },
+    {
+      "name": "inv_date",
+      "type": "string",
+      "logicalType": "date"
+    },
+    {
+      "name": "store_id",
+      "type": "int"
+    },
+    {
+      "name": "item_id",
+      "type": "int"
+    },
+    {
+      "name": "unit_qty",
+      "type": "int"
+    },
+    {
+      "name": "trx_timestamp",
+      "type": "string",
+      "logicalType": "timestamp-millis"
+    },
+    {
+      "name": "_hoodie_is_deleted",
+      "type": "boolean"
+    }
+  ]
+}
