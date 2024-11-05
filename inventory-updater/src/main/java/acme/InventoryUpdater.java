@@ -7,8 +7,8 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 import acme.objects.Product;
@@ -19,16 +19,13 @@ import java.util.logging.Logger;
 public class InventoryUpdater {
     private static Properties props = new Properties();
     private static Connection DBconnection;
-    private static List<Product> products = new ArrayList<Product>();
+    private static Map<String, Product> products;
 
     private static final Logger logger = Logger.getLogger(InventoryUpdater.class.getName());
 
     public static void main(String[] args) {
         // Disable Jansi library as it has a bug that causes the console to hang
         System.setProperty("log4j.skipJansi", "true");
-        logger.setLevel(Level.INFO);
-        System.setProperty("java.util.logging.SimpleFormatter.format",
-                "\n%4: %2 %1 %1, %1 %1:%1:%1 %1  - %5%6%n");
 
         // Load properties
         try {
@@ -48,6 +45,7 @@ public class InventoryUpdater {
 
         // Read in the products table
         DBconnection = null;
+        products = new HashMap<>();
         try {
             DBconnection = createConnection();
             logger.log(Level.INFO, "Connected to the PostgreSQL server successfully.");
@@ -55,7 +53,7 @@ public class InventoryUpdater {
             PreparedStatement pstmt = DBconnection.prepareStatement("SELECT * FROM item_master where item_id < 50000");
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
-                products.add(
+                products.put(rs.getString("item_upc"),
                         new Product(
                                 rs.getInt("item_id"),
                                 rs.getBigDecimal("item_price"),

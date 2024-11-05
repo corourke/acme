@@ -10,7 +10,7 @@ public class InventoryCount {
   private final int storeId;
   private int qtyInStock;
   private int qtyOnOrder;
-  private LocalDateTime qtyLastUpdated;
+  private LocalDateTime lastUpdated;
 
   // Constructor
   public InventoryCount(int itemId, int storeId, int qty_in_stock, int qty_on_order) {
@@ -18,7 +18,7 @@ public class InventoryCount {
     this.storeId = storeId;
     this.qtyInStock = qty_in_stock;
     this.qtyOnOrder = qty_on_order;
-    this.qtyLastUpdated = LocalDateTime.now();
+    this.lastUpdated = LocalDateTime.now();
   }
 
   public String toJson() {
@@ -32,7 +32,7 @@ public class InventoryCount {
     json.put("store_id", this.getStoreId());
     json.put("qty_in_stock", this.getQtyInStock());
     json.put("qty_on_order", this.getQtyOnOrder());
-    json.put("qty_last_updated", this.getQtyLastUpdated().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+    json.put("last_updated", this.getLastUpdated().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
     if (isDeleted != null) {
       json.put("_hoodie_is_deleted", isDeleted);
     }
@@ -53,7 +53,7 @@ public class InventoryCount {
 
   public void setQtyInStock(int qty_in_stock) {
     this.qtyInStock = qty_in_stock;
-    this.qtyLastUpdated = LocalDateTime.now();
+    this.lastUpdated = LocalDateTime.now();
   }
 
   public int getQtyOnOrder() {
@@ -62,10 +62,10 @@ public class InventoryCount {
 
   public void setQtyOnOrder(int qty_on_order) {
     this.qtyOnOrder = qty_on_order;
-    this.qtyLastUpdated = LocalDateTime.now();
+    this.lastUpdated = LocalDateTime.now();
   }
 
-  public LocalDateTime getQtyLastUpdated() {
-    return qtyLastUpdated;
+  public LocalDateTime getLastUpdated() {
+    return lastUpdated;
   }
 }

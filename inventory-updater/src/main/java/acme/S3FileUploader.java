@@ -5,10 +5,13 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.logging.Logger;
 import java.util.Properties;
 import java.util.logging.Level;
+import java.util.concurrent.CompletableFuture;
 
 public class S3FileUploader {
 
@@ -34,22 +37,28 @@ public class S3FileUploader {
         .build();
   }
 
-  public boolean uploadFile(String fileName) {
-    try {
-      // Strip any prefixes from the fileName
-      String key = folderPath + "/" + fileName.substring(fileName.lastIndexOf('/') + 1);
-      PutObjectRequest putOb = PutObjectRequest.builder()
-          .bucket(bucketName)
-          .key(key)
-          .build();
+  public CompletableFuture<Boolean> uploadFileAsync(String fileName) {
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        // Strip any prefixes from the fileName
+        String key = folderPath + "/" + fileName.substring(fileName.lastIndexOf('/') + 1);
+        PutObjectRequest putOb = PutObjectRequest.builder()
+            .bucket(bucketName)
+            .key(key)
+            .build();
 
-      s3.putObject(putOb, Paths.get(fileName));
-      logger.log(Level.INFO, "File uploaded successfully to S3: " + key);
-      return true;
-    } catch (S3Exception e) {
-      logger.log(Level.SEVERE, "S3 error: " + e.awsErrorDetails().errorMessage());
-      return false;
-    }
+        s3.putObject(putOb, Paths.get(fileName));
+        java.nio.file.Files.delete(Paths.get(fileName)); // delete the file that was uploaded
+        logger.log(Level.INFO, "Success " + key);
+        return true;
+      } catch (S3Exception e) {
+        logger.log(Level.SEVERE, "S3 error: " + e.awsErrorDetails().errorMessage());
+        return false;
+      } catch (IOException e) {
+        logger.log(Level.SEVERE, "Can't remove temporary file: " + fileName);
+        return true;
+      }
+    });
   }
 
   public void close() {

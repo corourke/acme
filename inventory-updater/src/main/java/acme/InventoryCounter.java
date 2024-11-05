@@ -20,10 +20,15 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 import java.util.logging.Level;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class InventoryCounter implements Runnable {
     private static final Logger logger = Logger.getLogger(InventoryCounter.class.getName());
@@ -33,17 +38,17 @@ public class InventoryCounter implements Runnable {
     private long lastWriteTime = System.currentTimeMillis(); // Track the last write time
     private long lastInventoryWriteTime = System.currentTimeMillis(); // Track the last inventory write time
 
-    private List<Product> products; // list of producst item_master for item_id lookup
+    private Map<String, Product> products; // Change from List<Product> to Map<String, Product>
     private List<InventoryTransaction> inventoryTransactions = new ArrayList<>(); // cache of trx
     private List<InventoryTransaction> transactionsToDelete = new ArrayList<>(); // cache of trx to delete
-    private List<InventoryCount> inventoryCounts = new ArrayList<InventoryCount>(); // inventory counts
+    private Map<String, InventoryCount> inventoryCountsMap = new ConcurrentHashMap<>(); // inventory counts
 
     private static final String TOPIC = "retail_scans";
-    private static final int MAX_INV_TRX_ROWS = 5000; // Max # of rows in file
+    private static final int MAX_INV_TRX_ROWS = 50000; // Max # of rows in file
     private static final int MAX_WRITE_INTERVAL_SECONDS = 300; // Max time in seconds before forcing a write
     private static final int MIN_INV_LEVEL = 1; // Define the constant
 
-    public InventoryCounter(Properties props, List<Product> products) {
+    public InventoryCounter(Properties props, Map<String, Product> products) {
 
         // Initialize Kafka configuration
         Properties kafkaProps = new Properties();
@@ -55,6 +60,8 @@ public class InventoryCounter implements Runnable {
         kafkaProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         kafkaProps.put(ConsumerConfig.GROUP_ID_CONFIG, "inventory-counter-group");
         kafkaProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        kafkaProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, "30000"); // 30 seconds
+        kafkaProps.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "2500");
 
         this.consumer = new KafkaConsumer<>(kafkaProps);
         this.consumer.subscribe(Collections.singletonList(TOPIC));
@@ -77,32 +84,42 @@ public class InventoryCounter implements Runnable {
                     if (scan == null)
                         continue;
 
-                    Product product = findProduct(scan);
+                    // Look up the product (item_master) using the UPC code
+                    Product product = TimeLogger.log("findProduct", () -> findProduct(scan));
                     if (product == null)
                         continue;
 
-                    InventoryCount inventoryCount = findOrCreateInventoryCount(scan, product);
-                    handleRestock(inventoryCount, product, random);
-                    processSaleTransaction(scan, product, inventoryCount);
-                    handleReorders(product, inventoryCount);
+                    // Create or find an existing inventory record (storeId, itemId)
+                    InventoryCount inventoryCount = TimeLogger.log("findOrCreateInventoryCount",
+                            () -> findOrCreateInventoryCount(scan, product));
 
+                    // If the item has been on order, handle restocking
+                    TimeLogger.log("handleRestock", () -> handleRestock(inventoryCount, product, random));
+
+                    // Reduce inventory on hand due to the sale (Yes, this creates a ton of rows and
+                    // isn't realistic)
+                    TimeLogger.log("processSaleTransaction",
+                            () -> processSaleTransaction(scan, product, inventoryCount));
+
+                    // If we are running low on inventory, reorder
+                    TimeLogger.log("handleReorders", () -> handleReorders(product, inventoryCount));
+
+                    // If we have buffered up enough transactions, write them out
                     if (shouldWriteToFile()) {
-                        handleTransactionsToDelete();
-                        if (!writeAndUploadTransactions()) {
-                            running = false;
-                        }
-                    }
-                    // Write the inventoryCounts to a file and upload to S3 after
-                    // MAX_WRITE_INTERVAL_SECONDS has elapsed
-                    if (System.currentTimeMillis() - lastInventoryWriteTime >= MAX_WRITE_INTERVAL_SECONDS * 1000) {
-                        writeAndUploadInventoryCounts();
+                        TimeLogger.log("handleTransactionsToDelete", () -> handleTransactionsToDelete());
+                        writeAndUploadTransactions();
                     }
                     messageCount++;
                 }
                 consumer.commitSync();
-                System.out.printf("\rConsumed scan messages count: %d, inventoryCount: %d", messageCount,
-                        inventoryCounts.size());
-                Thread.sleep(1000);
+                System.out.printf("Messages consumed: %d, buffered: %d, inventory records: %d, delete list: %d\r",
+                        messageCount,
+                        inventoryTransactions.size(), inventoryCountsMap.size(), transactionsToDelete.size());
+                // Write the inventoryCounts to S3 after max time has elapsed
+                if (System.currentTimeMillis() - lastInventoryWriteTime >= MAX_WRITE_INTERVAL_SECONDS * 1000) {
+                    writeAndUploadInventoryCounts();
+                }
+                Thread.sleep(500);
             }
         } catch (InterruptedException e) {
             logger.log(Level.SEVERE, "InventoryCounter interrupted: " + e.getMessage());
@@ -118,36 +135,30 @@ public class InventoryCounter implements Runnable {
         try {
             return Transaction.fromJson(record.value());
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to parse record value: {0}", record.value());
+            logger.log(Level.SEVERE, "Failed to parse record value: " + record.value());
+            running = false;
             return null;
         }
     }
 
     private Product findProduct(Transaction scan) {
-        return products.stream()
-                .filter(p -> p.getItemUPC().equals(scan.getItemUPC()))
-                .findFirst()
-                .orElseGet(() -> {
-                    logger.log(Level.SEVERE, "Product not found for UPC: {0}", scan.getItemUPC());
-                    return null;
-                });
+        Product product = products.get(scan.getItemUPC());
+        if (product == null) {
+            logger.log(Level.SEVERE, "No itemID found for UPC: " + scan.getItemUPC());
+            running = false;
+        }
+        return product;
     }
 
     private InventoryCount findOrCreateInventoryCount(Transaction scan, Product product) {
-        return inventoryCounts.stream()
-                .filter(ic -> ic.getItemId() == product.getItemId() && ic.getStoreId() == scan.getStoreId())
-                .findFirst()
-                .orElseGet(() -> createInventoryCount(scan, product));
-    }
-
-    private InventoryCount createInventoryCount(Transaction scan, Product product) {
-        InventoryCount inventoryCount = new InventoryCount(
-                product.getItemId(),
-                scan.getStoreId(),
-                (product.getRepl_qty() == 1 ? 6 : product.getRepl_qty()), // QtyInStock
-                0); // QtyOnOrder
-        inventoryCounts.add(inventoryCount);
-        return inventoryCount;
+        String key = product.getItemId() + "-" + scan.getStoreId(); // Create a composite key
+        return inventoryCountsMap.computeIfAbsent(key, k -> {
+            return new InventoryCount(
+                    product.getItemId(),
+                    scan.getStoreId(),
+                    (product.getRepl_qty() == 1 ? 6 : product.getRepl_qty()), // QtyInStock
+                    0); // QtyOnOrder
+        });
     }
 
     private void handleRestock(InventoryCount inventoryCount, Product product, Random random) {
@@ -176,10 +187,8 @@ public class InventoryCounter implements Runnable {
     }
 
     private void handleTransactionsToDelete() {
-        // Remove the first 20% of transactions in the delete list
+        // Remove the first 20% of transactions in the delete list (arbitrary)
         int numToDelete = (int) (transactionsToDelete.size() * 0.2);
-        logger.log(Level.INFO, String.format("\nPreparing to delete %d of %d transactions from the delete list.",
-                numToDelete, transactionsToDelete.size()));
 
         if (numToDelete > 0) {
             List<InventoryTransaction> toRemove = new ArrayList<>();
@@ -195,8 +204,9 @@ public class InventoryCounter implements Runnable {
                 inventoryTransactions.add(deletedTransaction);
                 toRemove.add(t);
             });
+            logger.log(Level.INFO, String.format("\nDeleted %d of %d transactions from the delete list.",
+                    toRemove.size(), transactionsToDelete.size()));
             transactionsToDelete.removeAll(toRemove);
-            logger.log(Level.INFO, String.format("\nDeleted %d transactions from the delete list.", toRemove.size()));
         }
     }
 
@@ -225,16 +235,18 @@ public class InventoryCounter implements Runnable {
         }
     }
 
+    /** File writing and S3 upload methods **/
+
     private boolean shouldWriteToFile() {
         long currentTime = System.currentTimeMillis();
         long elapsedTime = (currentTime - lastWriteTime) / 1000;
         return inventoryTransactions.size() >= MAX_INV_TRX_ROWS || elapsedTime >= MAX_WRITE_INTERVAL_SECONDS;
     }
 
-    private boolean writeAndUploadTransactions() {
+    private void writeAndUploadTransactions() {
         String fileName = writeInventoryTransactionsToFile();
         lastWriteTime = System.currentTimeMillis();
-        return fileName != null && s3Uploader.uploadFile(fileName);
+        uploadFileAsync(fileName);
     }
 
     private String writeInventoryTransactionsToFile() {
@@ -243,7 +255,8 @@ public class InventoryCounter implements Runnable {
                 + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddhhmmss")) + ".json";
 
         // Write the inventoryTransactions to the file
-        logger.log(Level.INFO, "\nWriting inventory transactions to file: " + fileName);
+        logger.log(Level.INFO, String.format("\nWriting %d transactions",
+                inventoryTransactions.size()));
         try (FileWriter fileWriter = new FileWriter(fileName)) {
             for (InventoryTransaction transaction : inventoryTransactions) {
                 fileWriter.write(transaction.toJson() + "\n");
@@ -260,10 +273,10 @@ public class InventoryCounter implements Runnable {
         return fileName;
     }
 
-    private boolean writeAndUploadInventoryCounts() {
+    private void writeAndUploadInventoryCounts() {
         String fileName = writeInventoryCountsToFile();
         lastInventoryWriteTime = System.currentTimeMillis();
-        return fileName != null && s3Uploader.uploadFile(fileName);
+        uploadFileAsync(fileName);
     }
 
     private String writeInventoryCountsToFile() {
@@ -273,10 +286,15 @@ public class InventoryCounter implements Runnable {
 
         // Write the inventoryCounts to the file
         // Note that we do not clear the inventoryCounts list after writing to file
-        logger.log(Level.INFO, "\nWriting inventory counts to file: " + fileName);
+        logger.log(Level.INFO, String.format("\nWriting %d inventory counts to file", inventoryCountsMap.size()));
         try (FileWriter fileWriter = new FileWriter(fileName)) {
-            for (InventoryCount count : inventoryCounts) {
-                fileWriter.write(count.toJson() + "\n");
+            LocalDateTime lastInventoryWriteDateTime = Instant.ofEpochMilli(lastInventoryWriteTime)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDateTime();
+            for (InventoryCount count : inventoryCountsMap.values()) {
+                if (count.getLastUpdated().isAfter(lastInventoryWriteDateTime)) {
+                    fileWriter.write(count.toJson() + "\n");
+                }
             }
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Error writing inventory counts to file: " + e.getMessage());
@@ -284,6 +302,15 @@ public class InventoryCounter implements Runnable {
         }
         // Return the generated file name
         return fileName;
+    }
+
+    private void uploadFileAsync(String fileName) {
+        if (fileName != null) {
+            CompletableFuture<Boolean> uploadResult = s3Uploader.uploadFileAsync(fileName);
+            uploadResult.thenAccept(success -> {
+                running = success; // if upload fails, stop processing
+            });
+        }
     }
 
 }

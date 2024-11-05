@@ -20,7 +20,7 @@
       "type": "int"
     },
     {
-      "name": "qty_last_updated",
+      "name": "last_updated",
       "type": "string",
       "logicalType": "timestamp-millis"
     }
