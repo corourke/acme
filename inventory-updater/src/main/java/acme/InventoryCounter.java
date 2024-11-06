@@ -205,7 +205,7 @@ public class InventoryCounter implements Runnable {
                 inventoryTransactions.add(deletedTransaction);
                 toRemove.add(t);
             });
-            logger.log(Level.INFO, String.format("\nDeleted %d of %d transactions from the delete list.",
+            logger.log(Level.INFO, String.format("Deleted %d of %d transactions from the delete list.",
                     toRemove.size(), transactionsToDelete.size()));
             transactionsToDelete.removeAll(toRemove);
         }
@@ -262,7 +262,7 @@ public class InventoryCounter implements Runnable {
                 + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddhhmmss")) + ".json";
 
         // Write the inventoryTransactions to the file
-        logger.log(Level.INFO, String.format("\nWriting %d transactions",
+        logger.log(Level.INFO, String.format("Writing %d transactions",
                 inventoryTransactions.size()));
         try (FileWriter fileWriter = new FileWriter(fileName)) {
             for (InventoryTransaction transaction : inventoryTransactions) {
