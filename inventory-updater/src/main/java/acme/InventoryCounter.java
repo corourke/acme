@@ -119,7 +119,7 @@ public class InventoryCounter implements Runnable {
                 if (System.currentTimeMillis() - lastInventoryWriteTime >= MAX_WRITE_INTERVAL_SECONDS * 1000) {
                     writeAndUploadInventoryCounts();
                 }
-                Thread.sleep(500);
+                Thread.sleep(2000);
             }
         } catch (InterruptedException e) {
             logger.log(Level.SEVERE, "InventoryCounter interrupted: " + e.getMessage());
