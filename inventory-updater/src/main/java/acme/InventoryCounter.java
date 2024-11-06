@@ -15,6 +15,7 @@ import acme.objects.InventoryCount;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -246,11 +247,16 @@ public class InventoryCounter implements Runnable {
 
     private void writeAndUploadTransactions() {
         String fileName = writeInventoryTransactionsToFile();
-        lastWriteTime = System.currentTimeMillis();
-        uploadFileAsync(fileName);
+        if (fileName != null) {
+            lastWriteTime = System.currentTimeMillis();
+            uploadFileAsync(fileName);
+        }
     }
 
     private String writeInventoryTransactionsToFile() {
+        if (inventoryTransactions.size() == 0) {
+            return null;
+        }
         // Create a file name based on the current date and time
         String fileName = "/tmp/inventory_transactions_"
                 + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddhhmmss")) + ".json";
@@ -266,20 +272,22 @@ public class InventoryCounter implements Runnable {
             logger.log(Level.SEVERE, "Error writing inventory transactions to file: " + e.getMessage());
             return null;
         }
-
         // Clear the list after writing to file
         inventoryTransactions.clear();
-
         // Return the generated file name
         return fileName;
     }
 
     private void writeAndUploadInventoryCounts() {
         String fileName = writeInventoryCountsToFile();
-        lastInventoryWriteTime = System.currentTimeMillis();
-        uploadFileAsync(fileName);
+        if (fileName != null) {
+            lastInventoryWriteTime = System.currentTimeMillis();
+            uploadFileAsync(fileName);
+        }
     }
 
+    // write inventory count records that have been modified since the last write
+    // If no records have changed, remove the zero-length file and return null
     private String writeInventoryCountsToFile() {
         // Create a file name based on the current date and time
         String fileName = "/tmp/inventory_counts_"
@@ -298,23 +306,25 @@ public class InventoryCounter implements Runnable {
                     recordCount++;
                 }
             }
+            if (recordCount == 0) {
+                // Delete zero-length files and return null
+                java.nio.file.Files.delete(Paths.get(fileName));
+                return null;
+            } else {
+                logger.log(Level.INFO, String.format("Wrote %d inventory counts", recordCount));
+                return fileName;
+            }
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Error writing inventory counts to file: " + e.getMessage());
             return null;
         }
-        logger.log(Level.INFO, String.format("Wrote %d inventory counts", recordCount));
-
-        // Return the generated file name
-        return fileName;
     }
 
     private void uploadFileAsync(String fileName) {
-        if (fileName != null) {
-            CompletableFuture<Boolean> uploadResult = s3Uploader.uploadFileAsync(fileName);
-            uploadResult.thenAccept(success -> {
-                running = success; // if upload fails, stop processing
-            });
-        }
+        CompletableFuture<Boolean> uploadResult = s3Uploader.uploadFileAsync(fileName);
+        uploadResult.thenAccept(success -> {
+            running = success; // if upload fails, stop processing
+        });
     }
 
 }

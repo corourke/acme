@@ -27,8 +27,10 @@ public class S3FileUploader {
     this.bucketName = props.getProperty("bucketName");
     this.folderPath = props.getProperty("folderPath");
 
-    if (region == null || bucketName == null) {
-      throw new IllegalArgumentException("Region and bucket name must be specified in properties.");
+    // TODO: check properties at program load
+    if (region == null || bucketName == null || folderPath == null) {
+      throw new IllegalArgumentException(
+          "Region, bucket name, and folder path must be specified in config.properties.");
     }
 
     this.s3 = S3Client.builder()
@@ -38,8 +40,15 @@ public class S3FileUploader {
   }
 
   public CompletableFuture<Boolean> uploadFileAsync(String fileName) {
+
     return CompletableFuture.supplyAsync(() -> {
       try {
+        // Check if the file exists and is not a directory
+        if (fileName == null || !java.nio.file.Files.exists(Paths.get(fileName))
+            || java.nio.file.Files.isDirectory(Paths.get(fileName))) {
+          logger.log(Level.SEVERE, "Invalid file: " + fileName);
+          return false; // Return false if the file is invalid
+        }
         // Strip any prefixes from the fileName
         String key = folderPath + "/" + fileName.substring(fileName.lastIndexOf('/') + 1);
         PutObjectRequest putOb = PutObjectRequest.builder()
@@ -55,8 +64,8 @@ public class S3FileUploader {
         logger.log(Level.SEVERE, "S3 error: " + e.awsErrorDetails().errorMessage());
         return false;
       } catch (IOException e) {
-        logger.log(Level.SEVERE, "Can't remove temporary file: " + fileName);
-        return true;
+        logger.log(Level.SEVERE, fileName + " - " + e);
+        return false;
       }
     });
   }
