@@ -223,6 +223,7 @@ public class PriceUpdater implements Runnable {
         int maxItemId = MIN_DELETABLE_ITEM_ID;
         if (rs.next()) {
             maxItemId = rs.getInt("max_item_id");
+            maxItemId++;
         }
         if (maxItemId < MIN_DELETABLE_ITEM_ID) {
             maxItemId = MIN_DELETABLE_ITEM_ID;
