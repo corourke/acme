@@ -104,12 +104,12 @@ public class InventoryCounter implements Runnable {
                     // If we are running low on inventory, reorder
                     TimeLogger.log("handleReorders", () -> handleReorders(product, inventoryCount));
 
-                    // If we have buffered up enough transactions, write them out
-                    if (shouldWriteToFile()) {
-                        TimeLogger.log("handleTransactionsToDelete", () -> handleTransactionsToDelete());
-                        writeAndUploadTransactions();
-                    }
                     messageCount++;
+                }
+                // If we have buffered up enough transactions, write them out
+                if (shouldWriteToFile()) {
+                    TimeLogger.log("handleTransactionsToDelete", () -> handleTransactionsToDelete());
+                    writeAndUploadTransactions();
                 }
                 consumer.commitSync();
                 System.out.printf("Messages consumed: %d, buffered: %d, inventory records: %d, delete list: %d\r",
@@ -240,7 +240,8 @@ public class InventoryCounter implements Runnable {
     private boolean shouldWriteToFile() {
         long currentTime = System.currentTimeMillis();
         long elapsedTime = (currentTime - lastWriteTime) / 1000;
-        return inventoryTransactions.size() >= MAX_INV_TRX_ROWS || elapsedTime >= MAX_WRITE_INTERVAL_SECONDS;
+        return inventoryTransactions.size() > 0
+                && (inventoryTransactions.size() >= MAX_INV_TRX_ROWS || elapsedTime >= MAX_WRITE_INTERVAL_SECONDS);
     }
 
     private void writeAndUploadTransactions() {
@@ -283,10 +284,10 @@ public class InventoryCounter implements Runnable {
         // Create a file name based on the current date and time
         String fileName = "/tmp/inventory_counts_"
                 + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddhhmmss")) + ".json";
+        int recordCount = 0;
 
         // Write the inventoryCounts to the file
         // Note that we do not clear the inventoryCounts list after writing to file
-        logger.log(Level.INFO, String.format("\nWriting %d inventory counts to file", inventoryCountsMap.size()));
         try (FileWriter fileWriter = new FileWriter(fileName)) {
             LocalDateTime lastInventoryWriteDateTime = Instant.ofEpochMilli(lastInventoryWriteTime)
                     .atZone(ZoneId.systemDefault())
@@ -294,12 +295,15 @@ public class InventoryCounter implements Runnable {
             for (InventoryCount count : inventoryCountsMap.values()) {
                 if (count.getLastUpdated().isAfter(lastInventoryWriteDateTime)) {
                     fileWriter.write(count.toJson() + "\n");
+                    recordCount++;
                 }
             }
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Error writing inventory counts to file: " + e.getMessage());
             return null;
         }
+        logger.log(Level.INFO, String.format("Wrote %d inventory counts", recordCount));
+
         // Return the generated file name
         return fileName;
     }
