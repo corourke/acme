@@ -15,8 +15,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-// import java.nio.file.Files;
-// import java.nio.file.Paths;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -38,10 +36,6 @@ public class App {
 
         // Disable Jansi library as it has a bug that causes the console to hang
         System.setProperty("log4j.skipJansi", "true");
-
-        // Start the simple web server for UI
-        // StatusPageServer statusServer = new StatusPageServer(8080);
-        // statusServer.start();
 
         // Load properties file
         try {
