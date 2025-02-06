@@ -152,25 +152,35 @@ public class TransactionGenerator implements Runnable {
 
   private void processPendingVoids() {
     LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC")).plusHours(offsetHours);
+    List<ScheduledVoidTransaction> dueVoids = new ArrayList<>();
+
+    // Collect due voids and remove them from the pending list within a synchronized
+    // block
     synchronized (pendingVoids) {
-      Iterator<ScheduledVoidTransaction> it = pendingVoids.iterator();
-      while (it.hasNext()) {
-        ScheduledVoidTransaction svt = it.next();
-        if (!svt.scheduledTime.isAfter(now)) { // scheduled time reached or passed
-          it.remove();
-          Transaction voidTransaction = new Transaction(
-              svt.original.getScanId(),
-              svt.original.getStoreId(),
-              svt.original.getScanDatetime(),
-              // now, // use current time as updated scan_datetime
-              svt.original.getItemUPC(),
-              0, // zero quantity for void
-              svt.original.getUnitPrice());
-          processTransaction(voidTransaction);
-          System.out.println("    Voiding transaction: " + voidTransaction.getScanId());
+      for (ScheduledVoidTransaction svt : pendingVoids) {
+        if (!svt.scheduledTime.isAfter(now)) {
+          dueVoids.add(svt);
         }
       }
+      pendingVoids.removeAll(dueVoids);
     }
+
+    if (dueVoids.size() == 0)
+      return;
+
+    // Process the due void transactions outside the synchronized block
+    for (ScheduledVoidTransaction svt : dueVoids) {
+      Transaction voidTransaction = new Transaction(
+          svt.original.getScanId(),
+          svt.original.getStoreId(),
+          svt.original.getScanDatetime(),
+          svt.original.getItemUPC(),
+          0, // void quantity
+          svt.original.getUnitPrice());
+      processTransaction(voidTransaction);
+      // System.out.println(" Voiding transaction: " + voidTransaction.getScanId());
+    }
+    System.out.println("    Voided " + dueVoids.size() + " including: " + dueVoids.get(0).original.getScanId());
   }
 
   // Calculate the number of transactions to generate based on the

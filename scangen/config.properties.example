@@ -1,8 +1,13 @@
-itemMasterPath=resources/item_master.csv
-retailStoresPath=resources/retail_stores.csv
-topic=retail_scans
+# For postgres database
+database.host=acme-db.cjuga4soy3gq.us-west-2.rds.amazonaws.com
+database.port=5432
+database.user=postgres
+database.name=acme
+database.password=DBPASS
+
 
 # Standard Kafka configurations
+topic=retail_scans
 bootstrap.servers=pkc-rgm37.us-west-2.aws.confluent.cloud:9092
 security.protocol=SASL_SSL
 sasl.mechanism=PLAIN
