@@ -1,4 +1,4 @@
--- Table 1: item_categories
+-- Table 1: Categories
 CREATE TABLE item_categories (
     category_code INTEGER PRIMARY KEY, 
     category_name VARCHAR(255), 
@@ -8,7 +8,7 @@ CREATE TABLE item_categories (
     _frequency NUMERIC
 );
 
--- Table 2: item_master
+-- Table 2: Item Master
 CREATE TABLE item_master (
     category_code INTEGER, 
     item_id INTEGER PRIMARY KEY,
@@ -25,7 +25,7 @@ ALTER TABLE IF EXISTS item_master
     ON DELETE RESTRICT
     NOT VALID;
 
--- Table 3: stores
+-- Table 3: Stores
 CREATE TABLE stores (
     store_id INTEGER PRIMARY KEY, 
     address VARCHAR(255),
@@ -34,10 +34,11 @@ CREATE TABLE stores (
     zipcode VARCHAR(10),
     longitude NUMERIC,
     latitude NUMERIC, 
-    timezone VARCHAR(32)
+    timezone VARCHAR(32),
+    region VARCHAR(32)
 );
 
--- Table 4: unbatched scans
+-- Table 4: Point-of-sale Scans
 -- This table is actually in the datalake, but showing it here for reference
 CREATE TABLE scans (
     scan_id VARCHAR(48) PRIMARY KEY,
@@ -45,7 +46,7 @@ CREATE TABLE scans (
     scan_datetime TIMESTAMP,
     item_upc VARCHAR(15),
     unit_qty INTEGER,
-    unit_price NUMERIC
+    unit_price DECIMAL(10,2)
 );
 ALTER TABLE IF EXISTS scans
     ADD CONSTRAINT fk_store_id FOREIGN KEY (store_id)
@@ -59,20 +60,3 @@ ALTER TABLE IF EXISTS scans
     ON UPDATE RESTRICT
     ON DELETE RESTRICT
     NOT VALID;
-
--- Table 5: hourly sales by category summary
--- This table is actually not in the datalake, but showing it here for reference
-CREATE TABLE hourly_sales_summary (
-    sales_day_hour TIMESTAMP,
-    region VARCHAR(32), -- stores.timezone
-    state VARCHAR (2),
-    store_id INTEGER, 
-    category_code INTEGER, 
-    category_name VARCHAR(255),
-    net_units INTEGER,
-    net_sales DECIMAL(10,2),
-    row_status VARCHAR(1), -- (D)aily total, (H)ourly total, (I)ntermediate total
-    row_timestamp TIMESTAMP
-);
-CREATE INDEX idx_sales_summary 
-    ON hourly_sales_summary (sales_day_hour, store_id, category_code);

@@ -1,4 +1,5 @@
 -- Set up Promotions table (from random selection)
+-- This table is not currently being used in the demo
 SET
   SEARCH_PATH TO retail;
 

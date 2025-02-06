@@ -1,6 +1,5 @@
 itemMasterPath=resources/item_master.csv
 retailStoresPath=resources/retail_stores.csv
-outputDirectory=/tmp/datagen/scans/stage
 topic=retail_scans
 
 # Standard Kafka configurations

@@ -1,5 +1,5 @@
 import pandas as pd
-df = pd.read_csv('retail_stores.csv')
+df = pd.read_csv('retail_stores_full.csv')
 
 timezone_replacements = {
     'America/New_York': 'EST (GMT-05)',       # Eastern Standard Time
@@ -36,16 +36,17 @@ timezone_replacements = {
     'Pacific/Honolulu': 'HST (GMT-10)',      # Hawaii Standard Time
 }
 
-df['timezone'] = df['timezone'].map(timezone_replacements)
+df.rename(columns={'timezone': 'region'}, inplace=True)
+df['timezone'] = df['region'].map(timezone_replacements)
 
-reductions = {'EST (GMT-05)': 300, 'CST (GMT-06)': 230, 'PST (GMT-08)': 80, 'MST (GMT-07)': 0}
-for timezone, reduction in reductions.items():
-    # Filter stores in the timezone
-    tz_stores = df[df['timezone'] == timezone]
-    # Randomly select stores to drop
-    drop_indices = tz_stores.sample(n=reduction, random_state=1).index
-    # Drop the selected stores
-    df = df.drop(drop_indices)
+# reductions = {'EST (GMT-05)': 300, 'CST (GMT-06)': 230, 'PST (GMT-08)': 80, 'MST (GMT-07)': 0}
+# for timezone, reduction in reductions.items():
+#     # Filter stores in the timezone
+#     tz_stores = df[df['timezone'] == timezone]
+#     # Randomly select stores to drop
+#     drop_indices = tz_stores.sample(n=reduction, random_state=1).index
+#     # Drop the selected stores
+#     df = df.drop(drop_indices)
 
-df.to_csv('retail_stores_sm.csv', index=False)
+df.to_csv('retail_stores_new.csv', index=False)
 
