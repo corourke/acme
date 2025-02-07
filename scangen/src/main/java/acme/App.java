@@ -14,7 +14,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -99,8 +98,6 @@ public class App {
             }
         }
 
-        // The main thread can continue to monitor or manage the application, if
-        // necessary
     }
 
     // Create a connection to the database, nothin fancy
@@ -123,41 +120,44 @@ public class App {
         }
     }
 
-    private static List<Product> loadProductsFromDB() {
-        List<Product> products = new ArrayList<>();
-        String productQuery = "SELECT ITEM_ID, ITEM_PRICE, ITEM_UPC, _FREQUENCY FROM retail.item_master WHERE ITEM_ID < 50000";
-        try (Statement stmt = dbConnection.createStatement();
-                ResultSet rs = stmt.executeQuery(productQuery)) {
-            while (rs.next()) {
-                int itemId = rs.getInt("ITEM_ID");
-                BigDecimal itemPrice = rs.getBigDecimal("ITEM_PRICE");
-                String itemUpc = rs.getString("ITEM_UPC");
-                int frequency = rs.getInt("_FREQUENCY");
-                products.add(new Product(itemId, itemPrice, itemUpc, frequency));
-            }
-        } catch (SQLException e) {
-            System.err.println("Error loading products from DB: " + e.getMessage());
-            System.exit(1);
-        }
-        return products;
+    // Define a functional interface that allows SQLException
+    @FunctionalInterface
+    interface ResultSetMapper<T> {
+        T map(ResultSet rs) throws SQLException;
     }
 
-    private static List<Store> loadStoresFromDB() {
-        List<Store> stores = new ArrayList<>();
-        String storeQuery = "SELECT store_id, state, timezone FROM retail.stores";
+    // Generic method to load data from the DB using a query and a mapper
+    private static <T> List<T> loadFromDB(String query, ResultSetMapper<T> mapper) {
+        List<T> result = new ArrayList<>();
         try (Statement stmt = dbConnection.createStatement();
-                ResultSet rs = stmt.executeQuery(storeQuery)) {
+                ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
-                int storeId = rs.getInt("store_id");
-                String state = rs.getString("state");
-                String timezone = rs.getString("timezone");
-                stores.add(new Store(storeId, state, timezone));
+                result.add(mapper.map(rs));
             }
         } catch (SQLException e) {
-            System.err.println("Error loading stores from DB: " + e.getMessage());
+            System.err.println("Error loading data from DB: " + e.getMessage());
             System.exit(1);
         }
-        return stores;
+        return result;
+    }
+
+    // Load products from DB
+    private static List<Product> loadProductsFromDB() {
+        String productQuery = "SELECT ITEM_ID, ITEM_PRICE, ITEM_UPC, _FREQUENCY FROM retail.item_master WHERE ITEM_ID < 50000";
+        return loadFromDB(productQuery, rs -> new Product(
+                rs.getInt("ITEM_ID"),
+                rs.getBigDecimal("ITEM_PRICE"),
+                rs.getString("ITEM_UPC"),
+                rs.getInt("_FREQUENCY")));
+    }
+
+    // Load stores from DB
+    private static List<Store> loadStoresFromDB() {
+        String storeQuery = "SELECT store_id, state, timezone FROM retail.stores";
+        return loadFromDB(storeQuery, rs -> new Store(
+                rs.getInt("store_id"),
+                rs.getString("state"),
+                rs.getString("timezone")));
     }
 
 }
