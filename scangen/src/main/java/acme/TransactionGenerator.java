@@ -180,7 +180,8 @@ public class TransactionGenerator implements Runnable {
       processTransaction(voidTransaction);
       // System.out.println(" Voiding transaction: " + voidTransaction.getScanId());
     }
-    System.out.println("    Voided " + dueVoids.size() + " including: " + dueVoids.get(0).original.getScanId());
+    System.out.println("    Voided " + dueVoids.size() + " including: " + dueVoids.get(0).original.getScanId()
+        + " pending: " + pendingVoids.size());
   }
 
   // Calculate the number of transactions to generate based on the
